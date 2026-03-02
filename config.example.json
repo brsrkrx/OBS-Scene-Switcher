@@ -1,0 +1,18 @@
+{
+  "platforms": {
+    "chaturbate": {
+      "enabled": true,
+      "username": "your_username_here",
+      "token": "your_token_here"
+    },
+    "joystick": {
+      "enabled": false,
+      "clientId": "your_client_id_here",
+      "clientSecret": "your_client_secret_here"
+    }
+  },
+  "server": {
+    "port": 3000,
+    "verbose_logging": false
+  }
+}

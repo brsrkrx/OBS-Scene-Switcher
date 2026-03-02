@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OBS Scene Switcher</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<style id="dynamic-styles">
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&family=Righteous&family=Audiowide&family=Orbitron:wght@700&family=Anton&family=Monoton&family=Inter:wght@400;600&family=Poppins:wght@400;600&family=Nunito:wght@400;600&display=swap');
+
+  :root {
+    --accent:   #ff4ecb;
+    --gold:     #ffd166;
+    --teal:     #06d6a0;
+    --radius:   12px;
+    --border-width: 2px;
+    --box-width: 480px;
+    --opacity: 1;
+    --top-bar-height: 4px;
+    --slide-duration: 550ms;
+    --animation-type: slide;
+    --display-font: 'Bebas Neue', cursive;
+    --body-font: 'DM Sans', sans-serif;
+    --font-size-label: 11px;
+    --font-size-username: 36px;
+    --font-size-tokens: 28px;
+    --font-size-message: 14px;
+    --bg-gradient: linear-gradient(135deg, #1a0a1e 0%, #0d1a2e 100%);
+    --position-bottom: 60px;
+    --position-right: 60px;
+    --position-top: auto;
+    --position-left: auto;
+    --message-color: rgba(255,255,255,0.65);
+    --username-color: #fff;
+    --bg-opacity: 1;
+    --progress-bar-enabled: true;
+    --progress-bar-height: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 1920px;
+    height: 1080px;
+    background: transparent;
+    overflow: hidden;
+    font-family: var(--body-font);
+  }
+
+  #alert-box {
+    position: fixed;
+    width: var(--box-width);
+    border: var(--border-width) solid var(--accent);
+    border-radius: var(--radius);
+    box-shadow: 0 0 30px rgba(255, 78, 203, 0.4), 0 0 80px rgba(255, 78, 203, 0.15), inset 0 1px 0 rgba(255,255,255,0.07);
+    pointer-events: none;
+    font-family: var(--body-font);
+    opacity: var(--opacity);
+    bottom: var(--position-bottom);
+    right: var(--position-right);
+    top: var(--position-top);
+    left: var(--position-left);
+    overflow: hidden;
+  }
+
+  #alert-box .alert-bg {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-gradient);
+    opacity: var(--bg-opacity, 1);
+    border-radius: var(--radius);
+    z-index: 0;
+  }
+
+  #alert-box.hidden { display: none; }
+  
+  /* Slide animations - direction based on position */
+  #alert-box.anim-slide { opacity: 0; transition: transform var(--slide-duration) cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease; }
+  #alert-box.anim-slide.pos-right { transform: translateX(600px); }
+  #alert-box.anim-slide.pos-left { transform: translateX(-600px); }
+  #alert-box.anim-slide.pos-top { transform: translateY(-600px); }
+  #alert-box.anim-slide.pos-bottom { transform: translateY(600px); }
+  #alert-box.anim-slide.pos-center { transform: scale(0.3); }
+  #alert-box.anim-slide.visible { transform: translate(0, 0) scale(1); opacity: var(--opacity); }
+  
+  #alert-box.anim-fade { opacity: 0; transition: opacity 0.4s ease; }
+  #alert-box.anim-fade.visible { opacity: var(--opacity); }
+  
+  #alert-box.anim-zoom { transform: scale(0.3); opacity: 0; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease; }
+  #alert-box.anim-zoom.visible { transform: scale(1); opacity: var(--opacity); }
+  
+  #alert-box.anim-bounce { transform: translateY(1000px); opacity: 0; transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.3s ease; }
+  #alert-box.anim-bounce.visible { transform: translateY(0); opacity: var(--opacity); }
+  
+  #alert-box.anim-stamp { transform: scale(2) rotate(15deg); opacity: 0; transition: transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.2s ease; }
+  #alert-box.anim-stamp.visible { transform: scale(1) rotate(0deg); opacity: var(--opacity); }
+  
+  #alert-box.anim-flip { transform: rotateY(90deg); opacity: 0; transition: transform 0.5s ease, opacity 0.3s ease; }
+  #alert-box.anim-flip.visible { transform: rotateY(0deg); opacity: var(--opacity); }
+
+  #alert-box::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: max(0px, calc(var(--radius) - var(--border-width)));
+    padding: var(--top-bar-height);
+    background: linear-gradient(90deg, var(--accent), var(--gold), var(--teal), var(--accent));
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+  }
+  
+  #alert-box.shimmer::after {
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 200% 0%; }
+  }
+
+  .alert-body { padding: 20px 24px 22px; position: relative; z-index: 1; }
+  .alert-label { font-family: var(--display-font); font-size: var(--font-size-label); letter-spacing: 3px; color: var(--accent); text-transform: uppercase; margin-bottom: 6px; opacity: 0.85; }
+  .alert-username { font-family: var(--display-font); font-size: var(--font-size-username); letter-spacing: 1px; color: var(--username-color); line-height: 1; text-shadow: 0 0 20px rgba(255,78,203,0.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .alert-tokens { font-family: var(--display-font); font-size: var(--font-size-tokens); color: var(--gold); margin-top: 2px; text-shadow: 0 0 15px rgba(255,209,102,0.5); }
+  .alert-message { font-size: var(--font-size-message); color: var(--message-color); margin-top: 10px; line-height: 1.4; font-style: italic; border-left: 2px solid var(--accent); padding-left: 10px; max-height: 80px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
+  .alert-scene-badge { display: inline-block; margin-top: 12px; background: rgba(6, 214, 160, 0.15); border: 1px solid var(--teal); color: var(--teal); font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; }
+
+  .progress-container { margin-top: 12px; background: rgba(0,0,0,0.3); height: 4px; border-radius: 2px; overflow: hidden; position: relative; }
+  .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s linear; box-shadow: 0 0 10px var(--accent); }
+  .progress-label { font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 4px; text-align: center; }
+
+  #scene-flash { position: fixed; inset: 0; background: var(--accent); opacity: 0; pointer-events: none; transition: opacity 0.08s ease; }
+  #scene-flash.flash { animation: do-flash 0.5s ease forwards; }
+  @keyframes do-flash { 0% { opacity: 0.35; } 100% { opacity: 0; } }
+
+  #status { position: fixed; top: 20px; left: 20px; background: rgba(0,0,0,0.75); color: #fff; font-size: 12px; padding: 6px 12px; border-radius: 6px; border-left: 3px solid #ff4444; display: none; max-width: 500px; line-height: 1.6; }
+
+  /* Scene Return Progress Bar (bottom of screen) */
+  #scene-return-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--progress-bar-height, 8px);
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99999;
+    display: none;
+  }
+
+  #scene-return-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--gold), var(--teal), var(--accent));
+    transition: width 0.1s linear;
+    box-shadow: 0 0 30px var(--accent), 0 -2px 10px var(--accent);
+  }
+  
+  #scene-return-bar.shimmer #scene-return-bar-fill {
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+
+  /* Tip Menu Display */
+  #menu-display {
+    position: fixed;
+    z-index: 900;
+    min-width: 260px;
+    max-width: 380px;
+    border-radius: var(--radius);
+    border: var(--border-width) solid var(--accent);
+    overflow: hidden;
+    font-family: var(--body-font);
+    opacity: var(--opacity);
+  }
+  /* animation: none */
+  #menu-display[data-anim="none"] { transition: none; }
+  #menu-display[data-anim="none"].hidden { opacity: 0; pointer-events: none; }
+  /* animation: fade */
+  #menu-display[data-anim="fade"] { transition: opacity 0.4s ease; }
+  #menu-display[data-anim="fade"].hidden { opacity: 0; pointer-events: none; }
+  /* animation: slide-down */
+  #menu-display[data-anim="slide-down"] { transition: opacity 0.35s ease, transform 0.35s ease; transform: translateY(0); }
+  #menu-display[data-anim="slide-down"].hidden { opacity: 0; pointer-events: none; transform: translateY(-16px); }
+  /* animation: slide-up */
+  #menu-display[data-anim="slide-up"] { transition: opacity 0.35s ease, transform 0.35s ease; transform: translateY(0); }
+  #menu-display[data-anim="slide-up"].hidden { opacity: 0; pointer-events: none; transform: translateY(16px); }
+  /* animation: zoom */
+  #menu-display[data-anim="zoom"] { transition: opacity 0.35s ease, transform 0.35s ease; transform: scale(1); transform-origin: top right; }
+  #menu-display[data-anim="zoom"].hidden { opacity: 0; pointer-events: none; transform: scale(0.8); }
+  .menu-bg {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-gradient);
+    opacity: var(--bg-opacity);
+    z-index: 0;
+  }
+  .menu-body {
+    position: relative;
+    z-index: 1;
+    padding: 12px 16px;
+  }
+  .menu-title {
+    font-family: var(--display-font);
+    font-size: 18px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 6px;
+  }
+  .menu-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .menu-table th {
+    color: var(--gold);
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 8px 6px;
+    opacity: 0.8;
+  }
+  .menu-table td {
+    padding: 5px 8px;
+    color: var(--username-color, #fff);
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .menu-table td:first-child {
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .menu-table tr:hover td {
+    background: rgba(255,255,255,0.04);
+  }
+</style>
+</head>
+<body>
+
+<script>
+const DEFAULT_CONFIG = {
+  ALERT_DURATION_SECONDS: 6,
+  SCENE_TIPS: [],
+  DEFAULT_SCENE: 'Main Scene',
+  SCENE_SWITCH_DELAY_SECONDS: 0,
+  THEME: null,
+  SHOW_OTHER_TIPS_OVERLAY: true,
+  MENU_DISPLAY_ENABLED: false,
+  MENU_DISPLAY_INTERVAL_SECONDS: 30,
+  MENU_DISPLAY_DURATION_SECONDS: 8,
+  MENU_DISPLAY_POSITION: 'top-right',
+  MENU_DISPLAY_SCALE: 1,
+  MENU_DISPLAY_ANIMATION: 'fade',
+  MENU_DISPLAY_BG_OPACITY: 1,
+};
+
+let CONFIG = { ...DEFAULT_CONFIG };
+let sceneQueue = [];
+let isProcessingQueue = false;
+let processedTipIds = new Set(); // Deduplication on overlay side too
+let menuDisplayInterval = null;
+let menuDisplayTimeout = null;
+
+function cleanOldTipIds() {
+  if (processedTipIds.size > 500) {
+    log('🧹 Clearing old tip IDs on overlay side');
+    processedTipIds.clear();
+  }
+}
+
+// Clean every 10 minutes
+setInterval(cleanOldTipIds, 600000);
+</script>
+
+<div id="scene-flash"></div>
+<div id="alert-box" class="anim-slide hidden shimmer">
+  <div class="alert-bg"></div>
+  <div class="alert-body">
+    <div class="alert-label">Tip Received ✦</div>
+    <div class="alert-username" id="alert-user">Username</div>
+    <div class="alert-tokens" id="alert-tokens">100 tokens</div>
+    <div class="alert-message" id="alert-msg" style="display:none"></div>
+    <div class="alert-scene-badge" id="alert-scene" style="display:none"></div>
+  </div>
+</div>
+
+<div id="status"></div>
+
+<div id="scene-return-bar">
+  <div id="scene-return-bar-fill"></div>
+</div>
+
+<div id="menu-display" class="hidden">
+  <div class="menu-bg"></div>
+  <div class="menu-body">
+    <div class="menu-title">Scene Switch Menu</div>
+    <table class="menu-table">
+      <thead>
+        <tr>
+          <th>Tokens</th>
+          <th>Scene</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody id="menu-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const obsAvailable = typeof window.obsstudio !== 'undefined';
+const statusEl = document.getElementById('status');
+const alertBox = document.getElementById('alert-box');
+
+let alertTimer = null, sceneReturnTimer = null, totalTips = 0;
+let returnProgressInterval = null;
+
+if (!obsAvailable) {
+  statusEl.style.display = 'block';
+  statusEl.style.borderColor = '#ffaa00';
+  log('⚠️ Running outside OBS — scene switching disabled. Make sure oss_server.js is running!');
+} else {
+  log('✅ Connected to OBS');
+}
+
+function log(msg) {
+  console.log(msg);
+  if (statusEl) statusEl.textContent = msg;
+}
+
+function applyTheme(theme) {
+  if (!theme) return;
+  
+  const root = document.documentElement;
+  
+  // Colors
+  if (theme.accent) root.style.setProperty('--accent', theme.accent);
+  if (theme.gold) root.style.setProperty('--gold', theme.gold);
+  if (theme.teal) root.style.setProperty('--teal', theme.teal);
+  if (theme.background) root.style.setProperty('--bg-gradient', theme.background);
+  
+  // Layout
+  if (theme.radius !== undefined) root.style.setProperty('--radius', theme.radius + 'px');
+  if (theme.borderWidth !== undefined) root.style.setProperty('--border-width', theme.borderWidth + 'px');
+  if (theme.boxWidth !== undefined) root.style.setProperty('--box-width', theme.boxWidth + 'px');
+  if (theme.opacity !== undefined) root.style.setProperty('--opacity', theme.opacity);
+  if (theme.topBarHeight !== undefined) root.style.setProperty('--top-bar-height', theme.topBarHeight + 'px');
+  
+  // Background opacity - applied to .alert-bg element
+  if (theme.bgOpacity !== undefined) {
+    root.style.setProperty('--bg-opacity', theme.bgOpacity);
+    
+    // Hide/show background element based on opacity
+    const alertBg = document.querySelector('#alert-box .alert-bg');
+    if (alertBg) {
+      if (theme.bgOpacity === 0) {
+        alertBg.style.display = 'none';
+      } else {
+        alertBg.style.display = 'block';
+      }
+    }
+  }
+  
+  // Progress bar settings
+  if (theme.progressBarEnabled !== undefined) {
+    const barContainer = document.getElementById('scene-return-bar');
+    if (!theme.progressBarEnabled && barContainer) {
+      barContainer.style.display = 'none';
+    }
+    root.style.setProperty('--progress-bar-enabled', theme.progressBarEnabled);
+  }
+  
+  if (theme.progressBarHeight !== undefined) {
+    root.style.setProperty('--progress-bar-height', theme.progressBarHeight + 'px');
+  }
+  
+  // Apply shimmer to progress bar if shimmer is enabled
+  const barContainer = document.getElementById('scene-return-bar');
+  if (barContainer) {
+    if (theme.shimmer) {
+      barContainer.classList.add('shimmer');
+    } else {
+      barContainer.classList.remove('shimmer');
+    }
+  }
+  
+  // Auto-detect text color for light backgrounds
+  if (theme.bgColor1 && theme.bgColor2) {
+    const isLight = isLightBackground(theme.bgColor1, theme.bgColor2);
+    const messageColor = isLight ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.65)';
+    const usernameColor = isLight ? '#000' : '#fff';
+    
+    root.style.setProperty('--message-color', messageColor);
+    root.style.setProperty('--username-color', usernameColor);
+  }
+  
+  // Position
+  if (theme.position) {
+    applyPosition(theme.position, theme.positionOffset || 60);
+  }
+  
+  // Animation
+  if (theme.slideDuration !== undefined) root.style.setProperty('--slide-duration', theme.slideDuration + 'ms');
+  if (theme.animationType) {
+    alertBox.className = alertBox.className.replace(/anim-\w+/, 'anim-' + theme.animationType);
+  }
+  
+  // Typography
+  if (theme.displayFont) root.style.setProperty('--display-font', theme.displayFont);
+  if (theme.bodyFont) root.style.setProperty('--body-font', theme.bodyFont);
+  if (theme.fontSizeLabel !== undefined) root.style.setProperty('--font-size-label', theme.fontSizeLabel + 'px');
+  if (theme.fontSizeUsername !== undefined) root.style.setProperty('--font-size-username', theme.fontSizeUsername + 'px');
+  if (theme.fontSizeTokens !== undefined) root.style.setProperty('--font-size-tokens', theme.fontSizeTokens + 'px');
+  if (theme.fontSizeMessage !== undefined) root.style.setProperty('--font-size-message', theme.fontSizeMessage + 'px');
+  
+  // Shimmer
+  if (theme.shimmer === false) {
+    alertBox.classList.remove('shimmer');
+  } else {
+    alertBox.classList.add('shimmer');
+  }
+  
+  log('🎨 Theme applied');
+}
+
+function isLightBackground(color1, color2) {
+  // Convert hex to RGB and calculate brightness
+  const hex1 = color1.replace('#', '');
+  const hex2 = color2.replace('#', '');
+  const r1 = parseInt(hex1.substr(0, 2), 16);
+  const g1 = parseInt(hex1.substr(2, 2), 16);
+  const b1 = parseInt(hex1.substr(4, 2), 16);
+  const r2 = parseInt(hex2.substr(0, 2), 16);
+  const g2 = parseInt(hex2.substr(2, 2), 16);
+  const b2 = parseInt(hex2.substr(4, 2), 16);
+  
+  // Average brightness
+  const brightness1 = (r1 * 299 + g1 * 587 + b1 * 114) / 1000;
+  const brightness2 = (r2 * 299 + g2 * 587 + b2 * 114) / 1000;
+  const avgBrightness = (brightness1 + brightness2) / 2;
+  
+  return avgBrightness > 180; // Light background if brightness > 180
+}
+
+function applyPosition(position, offset) {
+  const root = document.documentElement;
+  root.style.setProperty('--position-top', 'auto');
+  root.style.setProperty('--position-bottom', 'auto');
+  root.style.setProperty('--position-left', 'auto');
+  root.style.setProperty('--position-right', 'auto');
+  
+  // Remove all position classes
+  alertBox.classList.remove('pos-right', 'pos-left', 'pos-top', 'pos-bottom', 'pos-center');
+  
+  const positions = {
+    'bottom-right': () => { 
+      root.style.setProperty('--position-bottom', offset + 'px'); 
+      root.style.setProperty('--position-right', offset + 'px'); 
+      alertBox.classList.add('pos-right');
+    },
+    'bottom-left': () => { 
+      root.style.setProperty('--position-bottom', offset + 'px'); 
+      root.style.setProperty('--position-left', offset + 'px'); 
+      alertBox.classList.add('pos-left');
+    },
+    'top-right': () => { 
+      root.style.setProperty('--position-top', offset + 'px'); 
+      root.style.setProperty('--position-right', offset + 'px'); 
+      alertBox.classList.add('pos-right');
+    },
+    'top-left': () => { 
+      root.style.setProperty('--position-top', offset + 'px'); 
+      root.style.setProperty('--position-left', offset + 'px'); 
+      alertBox.classList.add('pos-left');
+    },
+    'center': () => { 
+      root.style.setProperty('--position-top', '50%'); 
+      root.style.setProperty('--position-left', '50%'); 
+      alertBox.style.transform = 'translate(-50%, -50%)'; 
+      alertBox.classList.add('pos-center');
+    },
+    'bottom-center': () => { 
+      root.style.setProperty('--position-bottom', offset + 'px'); 
+      root.style.setProperty('--position-left', '50%'); 
+      alertBox.style.transform = 'translateX(-50%)'; 
+      alertBox.classList.add('pos-bottom');
+    },
+    'top-center': () => { 
+      root.style.setProperty('--position-top', offset + 'px'); 
+      root.style.setProperty('--position-left', '50%'); 
+      alertBox.style.transform = 'translateX(-50%)'; 
+      alertBox.classList.add('pos-top');
+    }
+  };
+  if (positions[position]) positions[position]();
+}
+
+if (CONFIG.THEME) applyTheme(CONFIG.THEME);
+
+function switchScene(sceneName) {
+  if (!obsAvailable) { 
+    log('🎬 Would switch to scene: "' + sceneName + '" (OBS not available)'); 
+    return; 
+  }
+  
+  try {
+    const flash = document.getElementById('scene-flash');
+    flash.classList.remove('flash'); void flash.offsetWidth; flash.classList.add('flash');
+    window.obsstudio.setCurrentScene(sceneName);
+    log('✅ Successfully switched to scene: "' + sceneName + '"');
+  } catch (err) {
+    log('❌ ERROR: Failed to switch to scene "' + sceneName + '" - Scene may not exist in OBS!');
+    log('❌ OBS Error: ' + err.message);
+  }
+}
+
+function getSceneForTip(tokens) {
+  log('🔍 OVERLAY: Finding scene for ' + tokens + ' tokens');
+  log('🔍 OVERLAY: Configured scenes: ' + JSON.stringify(CONFIG.SCENE_TIPS));
+  
+  const exact = CONFIG.SCENE_TIPS.find(entry => entry.tokens === tokens);
+  if (exact) {
+    log('✓ OVERLAY: EXACT match found - Scene: "' + exact.scene + '" for ' + tokens + ' tokens');
+    return exact;
+  }
+  
+  log('✗ OVERLAY: NO match found for ' + tokens + ' tokens');
+  return null;
+}
+
+function applyMenuPosition(position) {
+  const el = document.getElementById('menu-display');
+  const offset = '20px';
+  el.style.top = el.style.bottom = el.style.left = el.style.right = 'auto';
+  el.style.transform = '';
+  const map = {
+    'top-right':     () => { el.style.top = offset; el.style.right = offset; },
+    'top-left':      () => { el.style.top = offset; el.style.left = offset; },
+    'top-center':    () => { el.style.top = offset; el.style.left = '50%'; el.style.transform = 'translateX(-50%)'; },
+    'bottom-right':  () => { el.style.bottom = offset; el.style.right = offset; },
+    'bottom-left':   () => { el.style.bottom = offset; el.style.left = offset; },
+    'bottom-center': () => { el.style.bottom = offset; el.style.left = '50%'; el.style.transform = 'translateX(-50%)'; },
+    'center':        () => { el.style.top = '50%'; el.style.left = '50%'; el.style.transform = 'translate(-50%, -50%)'; },
+  };
+  (map[position] || map['top-right'])();
+}
+
+function showMenuDisplay() {
+  if (!CONFIG.MENU_DISPLAY_ENABLED || CONFIG.SCENE_TIPS.length === 0) return;
+  const el = document.getElementById('menu-display');
+  const tbody = document.getElementById('menu-tbody');
+  tbody.innerHTML = '';
+  CONFIG.SCENE_TIPS.forEach(tip => {
+    const tr = document.createElement('tr');
+    const dur = tip.returnDelay > 0 ? tip.returnDelay + 's' : '∞';
+    tr.innerHTML = `<td>${tip.tokens}</td><td>${tip.scene}</td><td>${dur}</td>`;
+    tbody.appendChild(tr);
+  });
+  el.dataset.anim = CONFIG.MENU_DISPLAY_ANIMATION || 'fade';
+  el.style.zoom = CONFIG.MENU_DISPLAY_SCALE || 1;
+  el.querySelector('.menu-bg').style.opacity = CONFIG.MENU_DISPLAY_BG_OPACITY !== undefined ? CONFIG.MENU_DISPLAY_BG_OPACITY : 1;
+  applyMenuPosition(CONFIG.MENU_DISPLAY_POSITION);
+  el.classList.remove('hidden');
+  if (menuDisplayTimeout) clearTimeout(menuDisplayTimeout);
+  // After duration: hide, then wait interval, then show again
+  menuDisplayTimeout = setTimeout(() => {
+    el.classList.add('hidden');
+    if (CONFIG.MENU_DISPLAY_ENABLED && CONFIG.SCENE_TIPS.length > 0) {
+      menuDisplayInterval = setTimeout(showMenuDisplay, CONFIG.MENU_DISPLAY_INTERVAL_SECONDS * 1000);
+    }
+  }, CONFIG.MENU_DISPLAY_DURATION_SECONDS * 1000);
+}
+
+function restartMenuTimer() {
+  if (menuDisplayInterval) clearTimeout(menuDisplayInterval);
+  if (menuDisplayTimeout) clearTimeout(menuDisplayTimeout);
+  const el = document.getElementById('menu-display');
+  el.dataset.anim = CONFIG.MENU_DISPLAY_ANIMATION || 'fade';
+  el.classList.add('hidden');
+  if (!CONFIG.MENU_DISPLAY_ENABLED || CONFIG.SCENE_TIPS.length === 0) return;
+  showMenuDisplay(); // show immediately, cycle continues inside showMenuDisplay
+}
+
+function startReturnProgress(seconds) {
+  const barContainer = document.getElementById('scene-return-bar');
+  const barFill = document.getElementById('scene-return-bar-fill');
+  
+  // Check if progress bar is enabled in theme
+  const progressBarEnabled = getComputedStyle(document.documentElement).getPropertyValue('--progress-bar-enabled').trim();
+  if (progressBarEnabled === 'false' || seconds === 0) {
+    barContainer.style.display = 'none';
+    return;
+  }
+  
+  barContainer.style.display = 'block';
+  
+  const startTime = Date.now();
+  const duration = seconds * 1000;
+  
+  clearInterval(returnProgressInterval);
+  returnProgressInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, duration - elapsed);
+    const progress = (remaining / duration) * 100; // Reversed - shows remaining time
+    
+    barFill.style.width = progress + '%';
+    
+    if (remaining <= 0) {
+      clearInterval(returnProgressInterval);
+      barContainer.style.display = 'none';
+    }
+  }, 50);
+}
+
+function stopAllProgress() {
+  // Don't stop the return progress bar - it should persist independently
+  // Only clear if there's no active return timer
+  if (!sceneReturnTimer) {
+    clearInterval(returnProgressInterval);
+    const barContainer = document.getElementById('scene-return-bar');
+    if (barContainer) {
+      barContainer.style.display = 'none';
+    }
+  }
+}
+
+function showAlert(username, tokens, message, sceneEntry) {
+  document.getElementById('alert-user').textContent = username;
+  document.getElementById('alert-tokens').textContent = tokens + ' tokens';
+  const msgEl = document.getElementById('alert-msg');
+  if (message && message.trim()) { msgEl.textContent = '"' + message.trim() + '"'; msgEl.style.display = 'block'; }
+  else { msgEl.style.display = 'none'; }
+  const badgeEl = document.getElementById('alert-scene');
+  if (sceneEntry) { const durText = sceneEntry.returnDelay > 0 ? ' for ' + sceneEntry.returnDelay + ' seconds' : ''; badgeEl.textContent = '▶ Switching to ' + sceneEntry.scene + durText; badgeEl.style.display = 'inline-block'; }
+  else { badgeEl.style.display = 'none'; }
+  alertBox.classList.remove('hidden');
+  setTimeout(() => alertBox.classList.add('visible'), 50);
+  clearTimeout(alertTimer);
+  alertTimer = setTimeout(() => {
+    alertBox.classList.remove('visible');
+    setTimeout(() => { alertBox.classList.add('hidden'); stopAllProgress(); }, 600);
+  }, CONFIG.ALERT_DURATION_SECONDS * 1000);
+}
+
+function handleTip(tipData) {
+  const tokens = parseInt(tipData.tokens || tipData.amount || 0);
+  const username = tipData.from_user || (tipData.user && tipData.user.username) || 'Someone';
+  const message = tipData.message || '';
+  const timestamp = tipData.timestamp || Date.now();
+  
+  // Create unique tip ID
+  const tipId = `${username}_${tokens}_${timestamp}`;
+  
+  // Check if we've already processed this tip
+  if (processedTipIds.has(tipId)) {
+    log('⏭️ OVERLAY: Skipping duplicate tip - ' + tipId);
+    return;
+  }
+  
+  // Mark as processed
+  processedTipIds.add(tipId);
+  
+  totalTips += tokens;
+  log('💰 OVERLAY: Processing tip from ' + username + ': ' + tokens + ' tokens (ID: ' + tipId + ')');
+  
+  // Determine scene entry (null if no match)
+  const sceneEntry = getSceneForTip(tokens);
+  
+  // Log which scene will be triggered (if any)
+  if (sceneEntry) {
+    log('🎬 OVERLAY: Tip will trigger scene switch → "' + sceneEntry.scene + '"');
+  }
+  
+  // Check if we should show overlay
+  const shouldShowOverlay = sceneEntry 
+    ? (sceneEntry.showOverlay !== false) 
+    : CONFIG.SHOW_OTHER_TIPS_OVERLAY;
+  
+  // Show overlay if enabled
+  if (shouldShowOverlay) {
+    showAlert(username, tokens, message, sceneEntry);
+  }
+  
+  // Queue scene switch if tip matches configured amount
+  if (sceneEntry) {
+    queueSceneSwitch(sceneEntry);
+  } else {
+    log('ℹ️ OVERLAY: Tip amount ' + tokens + ' not configured - showing overlay only, no scene switch');
+  }
+}
+
+function queueSceneSwitch(sceneEntry) {
+  sceneQueue.push(sceneEntry);
+  log('📋 Scene queued: ' + sceneEntry.scene + ' (Queue length: ' + sceneQueue.length + ')');
+  processSceneQueue();
+}
+
+async function processSceneQueue() {
+  log('🔄 OVERLAY: processSceneQueue called - isProcessing: ' + isProcessingQueue + ', Queue length: ' + sceneQueue.length);
+  
+  if (isProcessingQueue) {
+    log('⏸️ OVERLAY: Already processing queue, skipping');
+    return;
+  }
+  
+  if (sceneQueue.length === 0) {
+    log('✓ OVERLAY: Queue empty, nothing to process');
+    return;
+  }
+  
+  isProcessingQueue = true;
+  const entry = sceneQueue.shift();
+  log('▶️ OVERLAY: Processing scene from queue - Scene: "' + entry.scene + '", Return delay: ' + entry.returnDelay + 's');
+  log('📋 OVERLAY: Remaining in queue: ' + sceneQueue.length);
+  
+  const switchDelay = CONFIG.SCENE_SWITCH_DELAY_SECONDS || 0;
+  
+  if (switchDelay > 0) {
+    log('⏱️ OVERLAY: Waiting ' + switchDelay + 's before switch');
+    await new Promise(resolve => setTimeout(resolve, switchDelay * 1000));
+  }
+  
+  log('🎬 OVERLAY: Switching to scene: "' + entry.scene + '"');
+  const durationMsg = entry.returnDelay > 0 
+    ? ' for ' + entry.returnDelay + ' seconds' 
+    : ' (no auto-return)';
+  log('⏱️ OVERLAY: Scene will be active' + durationMsg);
+  switchScene(entry.scene);
+  
+  log('⏱️ OVERLAY: Starting return timer for ' + entry.returnDelay + 's');
+  await scheduleReturnAsync(entry);
+  
+  isProcessingQueue = false;
+  log('✓ OVERLAY: Finished processing scene "' + entry.scene + '"');
+  
+  // Process next in queue if any
+  if (sceneQueue.length > 0) {
+    log('📋 OVERLAY: Processing next in queue (' + sceneQueue.length + ' remaining)');
+    processSceneQueue();
+  } else {
+    log('✓ OVERLAY: Queue complete');
+  }
+}
+
+async function scheduleReturnAsync(sceneEntry) {
+  return new Promise((resolve) => {
+    clearTimeout(sceneReturnTimer);
+    const returnDelay = sceneEntry.returnDelay !== undefined ? sceneEntry.returnDelay : 30;
+    if (returnDelay === 0) {
+      log('🔒 Staying on ' + sceneEntry.scene + ' (no auto-return)');
+      resolve();
+      return;
+    }
+    if (!CONFIG.DEFAULT_SCENE) {
+      resolve();
+      return;
+    }
+    startReturnProgress(returnDelay);
+    sceneReturnTimer = setTimeout(() => {
+      switchScene(CONFIG.DEFAULT_SCENE);
+      resolve();
+    }, returnDelay * 1000);
+  });
+}
+
+function scheduleReturn(sceneEntry) {
+  clearTimeout(sceneReturnTimer);
+  const returnDelay = sceneEntry.returnDelay !== undefined ? sceneEntry.returnDelay : 30;
+  if (returnDelay === 0) { log('🔒 Staying on ' + sceneEntry.scene + ' (no auto-return)'); return; }
+  if (!CONFIG.DEFAULT_SCENE) return;
+  startReturnProgress(returnDelay);
+  sceneReturnTimer = setTimeout(() => { switchScene(CONFIG.DEFAULT_SCENE); }, returnDelay * 1000);
+}
+
+const LOCAL_SERVER = 'http://localhost:3000';
+let eventSource = null;
+
+let configSource = null;
+let themeSource = null;
+
+function connectToServer() {
+  log('🔌 Connecting to local bridge server...');
+
+  // Main event stream (tips)
+  eventSource = new EventSource(LOCAL_SERVER + '/events');
+  eventSource.onopen = () => { log('✅ Connected to bridge server'); if (statusEl && obsAvailable) statusEl.style.display = 'none'; refreshOBSScenes(); };
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      log('📨 OVERLAY: Received message from server: ' + JSON.stringify(data));
+
+      if (data.type === 'scenes-requested') { refreshOBSScenes(); return; }
+
+      if (data.events && data.events.length > 0) {
+        log('📨 OVERLAY: Processing ' + data.events.length + ' events');
+        for (const evt of data.events) {
+          if (evt.type === 'tip') {
+            log('📨 OVERLAY: Handling tip event - Username: ' + evt.username + ', Tokens: ' + evt.tokens + ', Timestamp: ' + evt.timestamp);
+            handleTip({
+              tokens: evt.tokens,
+              from_user: evt.username,
+              message: evt.message || '',
+              is_anon: evt.isAnon || false,
+              timestamp: evt.timestamp
+            });
+          }
+        }
+      }
+    } catch (err) {
+      log('❌ OVERLAY: Parse error: ' + err.message);
+      console.error('Parse error:', err);
+    }
+  };
+  eventSource.onerror = () => {
+    log('⚠️ OVERLAY: Connection lost — retrying in 3s...');
+    eventSource.close();
+    if (configSource) configSource.close();
+    if (themeSource) themeSource.close();
+    setTimeout(connectToServer, 3000);
+  };
+
+  // Config update stream
+  configSource = new EventSource(LOCAL_SERVER + '/config-updates');
+  configSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      log('⚙️ Received config update');
+      CONFIG = { ...CONFIG, ...data };
+      restartMenuTimer();
+    } catch (err) { console.error('Config parse error:', err); }
+  };
+
+  // Theme update stream
+  themeSource = new EventSource(LOCAL_SERVER + '/theme-updates');
+  themeSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      log('🎨 Received theme update');
+      applyTheme(data);
+    } catch (err) { console.error('Theme parse error:', err); }
+  };
+}
+
+function resetOverlay() {
+  log('🔄 Resetting overlay state...');
+  
+  // Clear queue
+  sceneQueue = [];
+  isProcessingQueue = false;
+  processedTipIds.clear();
+  
+  // Clear any active timers
+  clearTimeout(sceneReturnTimer);
+  clearInterval(returnProgressInterval);
+  
+  // Hide alert box
+  const alertBox = document.getElementById('alert-box');
+  if (alertBox) {
+    alertBox.classList.add('hidden');
+    alertBox.classList.remove('visible');
+  }
+  
+  // Hide progress bar
+  const progressBar = document.getElementById('scene-return-bar');
+  if (progressBar) {
+    progressBar.style.display = 'none';
+  }
+  
+  log('✅ Overlay state reset complete');
+}
+
+function sendScenesToServer(scenes) {
+  // Normalize to strings — OBS may return scene names or scene objects
+  const names = Array.isArray(scenes)
+    ? scenes.map(s => (typeof s === 'string' ? s : (s && s.name) || String(s)))
+    : [];
+  fetch(LOCAL_SERVER + '/scenes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scenes: names })
+  }).catch(() => {});
+}
+
+function refreshOBSScenes() {
+  if (!obsAvailable || typeof window.obsstudio.getScenes !== 'function') return;
+  window.obsstudio.getScenes(function(scenes) {
+    sendScenesToServer(scenes);
+  });
+}
+
+function start() {
+  log('🚀 Starting — resetting state and connecting to server...');
+  resetOverlay();
+  connectToServer();
+  refreshOBSScenes();
+}
+
+if (obsAvailable) {
+  window.addEventListener('obsSourceActiveChanged', function(event) { if (event.detail && event.detail.active) start(); });
+  window.addEventListener('obsSceneCollectionChanged', refreshOBSScenes);
+  window.addEventListener('obsSceneListChanged', refreshOBSScenes);
+  start();
+} else {
+  start();
+}
+
+if (!obsAvailable) {
+  const btn = document.createElement('button');
+  btn.textContent = '🧪 Test Alert';
+  btn.style.cssText = 'position: fixed; bottom: 20px; left: 20px; background: #ff4ecb; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; font-family: DM Sans, sans-serif; z-index: 9999;';
+  btn.onclick = () => handleTip({ tokens: 50, from_user: 'TestUser123', message: 'Great show! Keep it up!' });
+  document.body.appendChild(btn);
+}
+</script>
+</body>
+</html>

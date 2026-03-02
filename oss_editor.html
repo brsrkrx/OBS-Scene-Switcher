@@ -1,0 +1,3523 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBS Scene Switcher Editor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Outfit:wght@300;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Righteous&family=Audiowide&family=Orbitron:wght@700&family=Anton&family=Monoton&family=DM+Sans:wght@400;600&family=Inter:wght@400;600&family=Poppins:wght@400;600&family=Nunito:wght@400;600&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0f; --surface: #15151f; --border: #2a2a3a;
+  --text: #e0e0e8; --text-dim: #8888a0; --accent: #00d9ff;
+  --success: #00ff88; --danger: #ff4466;
+}
+
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Outfit', sans-serif; overflow: hidden; height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════════════ */
+
+.header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 20px 30px; display: flex; justify-content: space-between;
+  align-items: center; position: sticky; top: 0; z-index: 100;
+}
+
+.header h1 {
+  font-size: 24px; font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--success));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+.header-actions {
+  display: flex; gap: 12px; align-items: center;
+}
+
+.connection-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; padding: 6px 12px;
+  border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface-2, rgba(255,255,255,0.05));
+  color: var(--text-muted, rgba(255,255,255,0.5));
+  white-space: nowrap; -webkit-user-select: none; user-select: none;
+}
+.connection-badge .dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: currentColor;
+}
+.connection-badge.ok   { color: var(--success, #06d6a0); border-color: var(--success, #06d6a0); }
+.connection-badge.warn { color: #ffaa00; border-color: #ffaa00; }
+.connection-badge.err  { color: var(--error, #ff4444); border-color: var(--error, #ff4444); }
+
+.notification {
+  background: var(--success); color: #000;
+  padding: 10px 20px; border-radius: 6px;
+  font-size: 14px; font-weight: 600;
+  opacity: 0; transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.notification.show {
+  opacity: 1;
+}
+
+.notification.error {
+  background: var(--danger); color: white;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════════════════ */
+
+.tabs {
+  display: flex; gap: 4px; background: var(--surface);
+  border-bottom: 1px solid var(--border); padding: 0 20px;
+  position: sticky; top: 76px; z-index: 99;
+}
+
+.tab {
+  padding: 12px 24px; background: none; border: none;
+  color: var(--text-dim); cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-family: 'Outfit'; font-size: 14px; font-weight: 500;
+  transition: all 0.2s;
+}
+
+.tab.active {
+  color: var(--accent); border-bottom-color: var(--accent);
+}
+
+.tab:hover:not(.active) {
+  color: var(--text);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════════════════════ */
+
+.content {
+  display: none;
+}
+
+.content.active {
+  display: grid;
+  grid-template-columns: 550px 1fr;
+  height: calc(100vh - 130px);
+  max-height: calc(100vh - 130px);
+  overflow: hidden;
+  position: relative;
+}
+
+.content.full-width {
+  grid-template-columns: 1fr;
+}
+
+.left-panel {
+  background: var(--surface); border-right: 1px solid var(--border);
+  padding: 30px; overflow-y: auto; max-height: calc(100vh - 125px);
+}
+
+.resizer {
+  width: 5px;
+  background: var(--border);
+  background: #1e1f20;
+  cursor: col-resize;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 550px;
+  z-index: 10;
+  transition: background 0.2s;
+}
+
+.resizer:hover {
+  background: var(--accent);
+}
+
+.right-panel {
+  padding: 30px; display: flex; flex-direction: column;
+  align-items: stretch; justify-content: center;
+  overflow: hidden; min-width: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PREVIEW
+═══════════════════════════════════════════════════════════ */
+
+.preview-outer {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.preview-container {
+  width: 960px; height: 540px; background: #1a1a1a;
+  border: 2px solid var(--border); border-radius: 8px;
+  position: absolute; top: 0; left: 0;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
+.preview-info {
+  margin-top: 20px; text-align: center;
+  color: var(--text-dim); font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORM ELEMENTS
+═══════════════════════════════════════════════════════════ */
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block; font-size: 13px; font-weight: 500;
+  margin-bottom: 8px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+.form-group .help-text {
+  font-size: 11px; color: var(--text-dim);
+  margin-top: 4px; font-style: italic;
+}
+
+.section-title-collapsible {
+  cursor: pointer; -webkit-user-select: none; user-select: none;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.section-title-collapsible:hover { background: rgba(255,255,255,0.04); border-radius: 4px; }
+.section-toggle { font-size: 11px; transition: transform 0.2s; opacity: 0.6; }
+.section-content.collapsed { display: none; }
+
+.help-text-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.help-text-aside {
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-style: normal;
+}
+
+input[type="text"], input[type="number"], select, textarea {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 12px; border-radius: 6px;
+  font-family: 'JetBrains Mono'; font-size: 13px;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+
+textarea {
+  font-family: 'Outfit';
+  min-height: 60px; resize: vertical;
+}
+
+.color-group {
+  display: grid; grid-template-columns: 50px 1fr; gap: 10px;
+  align-items: center;
+}
+
+input[type="color"] {
+  width: 50px; height: 40px; border: none;
+  border-radius: 6px; cursor: pointer;
+}
+
+.slider-group {
+  display: flex; gap: 12px; align-items: center;
+}
+
+input[type="range"] {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: var(--border); outline: none;
+  appearance: none; -webkit-appearance: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--accent);
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; border: none;
+}
+
+.slider-value {
+  min-width: 50px; text-align: right;
+  font-family: 'JetBrains Mono'; font-size: 13px;
+  color: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════════════════ */
+
+.btn {
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); padding: 10px 20px;
+  border-radius: 6px; font-size: 14px; font-weight: 500;
+  cursor: pointer; font-family: 'Outfit';
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  background: var(--border); transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--accent); color: #000; border-color: var(--accent);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary:hover {
+  background: var(--success); border-color: var(--success);
+}
+
+.btn-primary.needs-apply {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--success) 50%, var(--accent) 100%);
+  background-size: 200% 100%;
+  animation: needs-apply-shimmer 1.8s ease-in-out infinite;
+  border-color: var(--success);
+}
+
+.btn-primary.obs-disconnected,
+.btn-primary.obs-disconnected.needs-apply {
+  background: var(--surface2);
+  background-size: auto;
+  animation: none;
+  border-color: var(--border);
+  color: var(--text-dim);
+  box-shadow: none;
+  cursor: default;
+}
+
+@keyframes needs-apply-shimmer {
+  0%   { background-position: 0% 0%;   box-shadow: 0 0 8px 1px rgba(0, 217, 255, 0.5); }
+  50%  { background-position: 100% 0%; box-shadow: 0 0 14px 3px rgba(0, 255, 136, 0.6); }
+  100% { background-position: 0% 0%;   box-shadow: 0 0 8px 1px rgba(0, 217, 255, 0.5); }
+}
+
+.btn.obs-connected {
+  background: linear-gradient(90deg, var(--surface2) 0%, var(--accent) 50%, var(--surface2) 100%);
+  background-size: 200% 100%;
+  animation: obs-connected-shimmer 2.4s ease-in-out infinite;
+  border-color: var(--accent);
+  color: white;
+}
+
+@keyframes obs-connected-shimmer {
+  0%   { background-position: 0% 0%;   box-shadow: 0 0 6px 1px rgba(0, 217, 255, 0.35); }
+  50%  { background-position: 100% 0%; box-shadow: 0 0 12px 3px rgba(0, 217, 255, 0.55); }
+  100% { background-position: 0% 0%;   box-shadow: 0 0 6px 1px rgba(0, 217, 255, 0.35); }
+}
+
+.btn-danger {
+  background: var(--danger); color: white; border-color: var(--danger);
+}
+
+.btn-small {
+  padding: 6px 12px; font-size: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTIONS
+═══════════════════════════════════════════════════════════ */
+
+.section-title {
+  font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--accent);
+  margin: 24px 0 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-title:first-child {
+  margin-top: 0;
+}
+
+.grid-2 {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   THEME PRESETS
+═══════════════════════════════════════════════════════════ */
+
+.theme-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin-bottom: 20px;
+}
+
+.theme-card {
+  background: var(--bg); border: 2px solid var(--border);
+  border-radius: 8px; padding: 14px; cursor: pointer;
+  transition: all 0.2s; position: relative;
+}
+
+.theme-card:hover {
+  border-color: var(--accent); transform: translateY(-2px);
+}
+
+.theme-card.active {
+  border-color: var(--success);
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+}
+
+.theme-name {
+  font-weight: 600; margin-bottom: 8px; font-size: 14px;
+}
+
+.theme-colors {
+  display: flex; gap: 4px; height: 20px; border-radius: 4px;
+  overflow: hidden;
+}
+
+.theme-colors > div {
+  flex: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCENE ITEMS
+═══════════════════════════════════════════════════════════ */
+
+.scene-item {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 15px; margin-bottom: 12px;
+}
+
+.scene-grid {
+  display: grid; grid-template-columns: 120px 1fr 120px 80px 50px;
+  gap: 12px; align-items: center;
+}
+
+.scene-grid input {
+  margin: 0;
+}
+
+.scene-name-cell { display: contents; }
+.scene-name-cell input, .scene-name-cell select { margin: 0; width: 100%; }
+
+.scene-label {
+  font-size: 11px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GRADIENT BUILDER
+═══════════════════════════════════════════════════════════ */
+
+.gradient-builder {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 15px;
+}
+
+.gradient-preview {
+  height: 60px; border-radius: 6px; margin-bottom: 12px;
+  border: 1px solid var(--border);
+}
+
+.gradient-controls {
+  display: grid; gap: 12px;
+}
+
+.gradient-row {
+  display: grid; grid-template-columns: 50px 1fr 60px;
+  gap: 10px; align-items: center;
+}
+
+.gradient-angle {
+  display: flex; gap: 10px; align-items: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INFO BOXES
+═══════════════════════════════════════════════════════════ */
+
+.info-box {
+  background: rgba(0, 217, 255, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 6px; padding: 12px 16px;
+  font-size: 13px; margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.warning-box {
+  background: rgba(255, 209, 102, 0.1);
+  border-color: #ffd166;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CUSTOM THEME MANAGEMENT
+═══════════════════════════════════════════════════════════ */
+
+.saved-themes {
+  max-height: 200px; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px;
+}
+
+.saved-theme-item {
+  display: flex; justify-content: space-between;
+  align-items: center; padding: 8px 10px;
+  border-radius: 4px; margin-bottom: 6px;
+  background: var(--surface);
+}
+
+.saved-theme-item:hover {
+  background: var(--border);
+}
+
+.saved-theme-name {
+  font-size: 13px; flex: 1;
+}
+
+.saved-theme-actions {
+  display: flex; gap: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SERVER CONFIG
+═══════════════════════════════════════════════════════════ */
+
+.config-section {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 20px; margin-bottom: 20px;
+}
+
+.radio-group {
+  display: flex; gap: 20px; margin-bottom: 15px;
+}
+
+.radio-label {
+  display: flex; align-items: center; gap: 8px;
+  cursor: pointer; font-size: 14px;
+}
+
+.radio-label input[type="radio"] {
+  width: auto; cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════════════════ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-overlay.show {
+  display: flex;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  padding: 0;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 8px; height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border); border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎨 OBS Scene Switcher</h1>
+  <div class="header-actions">
+    <div class="notification" id="notification"></div>
+    <div class="connection-badge" id="connection-badge" title="Connection status. If server offline, start server. If Overlay not connected: Make sure oss_overlay.html is added to OBS and page permission is set to Advanced. If still not connected, right-click the OBS browser source → Refresh cache of current page">
+      <span class="dot"></span><span id="connection-label">Checking…</span>
+    </div>
+    <button class="btn" onclick="openTestTipEditor()">⚙️ Edit Test Tip</button>
+    <button class="btn" onclick="testAlert()">▶ Send Test Tip</button>
+    <button class="btn btn-primary" onclick="applyLive()">✓ Apply Changes to OBS</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" id="config-tab" onclick="switchTab('config')">Configuration</button>
+  <button class="tab" id="theme-tab" onclick="switchTab('theme')">Theme</button>
+  <button class="tab" id="server-tab" onclick="switchTab('server')">Server Setup</button>
+  <button class="tab" id="about-tab" onclick="switchTab('about')">About</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     THEME TAB
+═══════════════════════════════════════════════════════════ -->
+
+<div id="theme-content" class="content">
+  <div class="resizer" id="theme-resizer"></div>
+  <div class="left-panel">
+    
+    <div class="section-title">Theme Presets</div>
+    <div class="theme-grid" id="theme-presets"></div>
+    
+    <div class="section-title">Custom Themes</div>
+    <div class="form-group">
+      <input type="text" id="custom-theme-name" placeholder="My Custom Theme" style="margin-bottom: 10px;">
+      <div style="display: flex; gap: 10px;">
+        <button class="btn" onclick="saveCustomTheme()" style="flex: 1;">💾 Save Theme</button>
+        <button class="btn" onclick="exportTheme()">📤 Export JSON</button>
+        <button class="btn" onclick="importTheme()">📥 Import JSON</button>
+      </div>
+    </div>
+    
+    <div class="saved-themes" id="saved-themes"></div>
+    
+    <div class="section-title">Background</div>
+    <div class="gradient-builder">
+      <div class="gradient-preview" id="gradient-preview"></div>
+      <div class="gradient-controls">
+        <div class="gradient-row">
+          <label style="font-size: 11px; color: var(--text-dim);">Color 1</label>
+          <div class="color-group">
+            <input type="color" id="bg-color1" value="#1a0a1e" oninput="updateGradient()">
+            <input type="text" id="bg-color1-text" value="#1a0a1e" oninput="syncBgColor('bg-color1')">
+          </div>
+        </div>
+        <div class="gradient-row">
+          <label style="font-size: 11px; color: var(--text-dim);">Color 2</label>
+          <div class="color-group">
+            <input type="color" id="bg-color2" value="#0d1a2e" oninput="updateGradient()">
+            <input type="text" id="bg-color2-text" value="#0d1a2e" oninput="syncBgColor('bg-color2')">
+          </div>
+        </div>
+        <div class="gradient-angle">
+          <label style="font-size: 11px; color: var(--text-dim); min-width: 50px;">Angle</label>
+          <input type="range" id="gradient-angle" min="0" max="360" value="135" oninput="updateGradient()">
+          <span class="slider-value"><span id="gradient-angle-value">135</span>°</span>
+        </div>
+        <div class="gradient-angle">
+          <label style="font-size: 11px; color: var(--text-dim); min-width: 50px;">Opacity</label>
+          <input type="range" id="bg-opacity" min="0" max="1" step="0.01" value="1" oninput="updatePreview()">
+          <span class="slider-value" id="bg-opacity-value">1.00</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="section-title">Colors</div>
+    <div class="form-group">
+      <label>Accent Color</label>
+      <div class="color-group">
+        <input type="color" id="accent" value="#ff4ecb" oninput="updatePreview()">
+        <input type="text" id="accent-text" value="#ff4ecb" oninput="syncColor('accent')">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label>Token Color</label>
+      <div class="color-group">
+        <input type="color" id="gold" value="#ffd166" oninput="updatePreview()">
+        <input type="text" id="gold-text" value="#ffd166" oninput="syncColor('gold')">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label>Info Color</label>
+      <div class="color-group">
+        <input type="color" id="teal" value="#06d6a0" oninput="updatePreview()">
+        <input type="text" id="teal-text" value="#06d6a0" oninput="syncColor('teal')">
+      </div>
+    </div>
+    
+    <div class="section-title">Layout</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Box Width (px)</label>
+        <input type="number" id="box-width" value="480" min="300" max="800" oninput="updatePreview()">
+      </div>
+      <div class="form-group">
+        <label>Box Opacity <span style="font-weight: 400; text-transform: none;">(0=invisible, 1=solid)</span></label>
+        <div class="slider-group">
+          <input type="range" id="opacity" min="0" max="1" step="0.01" value="1" oninput="updatePreview()">
+          <span class="slider-value" id="opacity-value">1.00</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Border Radius (px)</label>
+        <input type="number" id="radius" value="12" min="0" max="50" oninput="updatePreview()">
+      </div>
+      <div class="form-group">
+        <label>Border Width (px)</label>
+        <input type="number" id="border-width" value="2" min="0" max="10" oninput="updatePreview()">
+      </div>
+    </div>
+    
+    <div class="section-title">Position</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Position</label>
+        <select id="position" onchange="updatePreview()">
+          <option value="bottom-right">Bottom Right</option>
+          <option value="bottom-left">Bottom Left</option>
+          <option value="top-right">Top Right</option>
+          <option value="top-left">Top Left</option>
+          <option value="center">Center</option>
+          <option value="bottom-center">Bottom Center</option>
+          <option value="top-center">Top Center</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Offset from Edge (px)</label>
+        <input type="number" id="position-offset" value="60" min="0" max="300" oninput="updatePreview()">
+      </div>
+    </div>
+    
+    <div class="section-title">Animation</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Animation Style</label>
+        <select id="animation-type" onchange="updatePreviewAnimation()">
+          <option value="slide">Slide</option>
+          <option value="fade">Fade</option>
+          <option value="zoom">Zoom</option>
+          <option value="bounce">Bounce</option>
+          <option value="stamp">Stamp</option>
+          <option value="flip">Flip</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Duration (ms)</label>
+        <input type="number" id="slide-duration" value="550" min="100" max="5000" step="50" oninput="updatePreviewAnimation()">
+      </div>
+      <div class="form-group">
+        <label>Shimmer Effect</label>
+        <select id="shimmer" onchange="updatePreview()">
+          <option value="true">Enabled</option>
+          <option value="false">Disabled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Shimmer Bar Thickness (px)</label>
+        <input type="number" id="top-bar-height" value="4" min="0" max="10" oninput="updatePreview()">
+      </div>
+      <div class="form-group">
+        <label>Return Progress Bar</label>
+        <select id="progress-bar-enabled" onchange="updatePreview()">
+          <option value="true">Enabled</option>
+          <option value="false">Disabled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Progress Bar Thickness (px)</label>
+        <input type="number" id="progress-bar-height" value="8" min="1" max="10" oninput="updatePreview()">
+      </div>
+    </div>
+    
+    <div class="section-title">Typography</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Display Font (Headers)</label>
+        <select id="display-font" onchange="updatePreview()">
+          <option value="'Bebas Neue', cursive">Bebas Neue</option>
+          <option value="'Righteous', cursive">Righteous</option>
+          <option value="'Audiowide', cursive">Audiowide</option>
+          <option value="'Orbitron', sans-serif">Orbitron</option>
+          <option value="'Anton', sans-serif">Anton</option>
+          <option value="'Monoton', cursive">Monoton</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Body Font (Messages)</label>
+        <select id="body-font" onchange="updatePreview()">
+          <option value="'DM Sans', sans-serif">DM Sans</option>
+          <option value="'Inter', sans-serif">Inter</option>
+          <option value="'Poppins', sans-serif">Poppins</option>
+          <option value="'Nunito', sans-serif">Nunito</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Username Size (px)</label>
+        <input type="number" id="font-size-username" value="36" min="20" max="80" oninput="updatePreview()">
+      </div>
+      <div class="form-group">
+        <label>Token Size (px)</label>
+        <input type="number" id="font-size-tokens" value="28" min="16" max="60" oninput="updatePreview()">
+      </div>
+      <div class="form-group">
+        <label>Label Size (px)</label>
+        <input type="number" id="font-size-label" value="11" min="8" max="20" oninput="updatePreview()">
+      </div>
+      <div class="form-group">
+        <label>Message Size (px)</label>
+        <input type="number" id="font-size-message" value="14" min="10" max="24" oninput="updatePreview()">
+      </div>
+    </div>
+    
+  </div>
+  
+  <div class="right-panel">
+    <div class="preview-outer" id="preview-outer">
+      <div class="preview-container" id="preview-container"></div>
+    </div>
+    <div class="preview-info">
+      Live Preview • Changes update instantly
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CONFIG TAB
+═══════════════════════════════════════════════════════════ -->
+
+<div id="config-content" class="content full-width active">
+  <div class="left-panel" style="max-width: 1200px; margin: 0 auto;">
+    
+    <div class="section-title section-title-collapsible" onclick="toggleSection('general-settings')">
+      General Settings
+      <span class="section-toggle" id="general-settings-toggle">▼</span>
+    </div>
+    <div class="section-content" id="general-settings-content">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Alert Duration (seconds)</label>
+        <input type="number" id="alert-duration" value="6" min="2" max="30">
+        <div class="help-text">How long the alert stays visible</div>
+      </div>
+      <div class="form-group">
+        <label>Default Scene (Main scene to return to)</label>
+        <div id="default-scene-container"><input type="text" id="default-scene" value="Main Scene" placeholder="Main Scene"></div>
+        <div class="help-text">Scene to return to after timed scenes</div>
+      </div>
+      <div class="form-group">
+        <label>Scene Switch Delay (seconds)</label>
+        <input type="number" id="scene-switch-delay" value="0" min="0" max="10">
+        <div class="help-text">Wait time before switching scene (0 = instant)</div>
+      </div>
+      <div class="form-group">
+        <label>Show Overlay for Tips not triggering a scene change</label>
+        <select id="show-other-tips-overlay">
+          <option value="true">Enabled</option>
+          <option value="false">Disabled</option>
+        </select>
+        <div class="help-text">Show overlay for tips that don't trigger scene changes</div>
+      </div>
+    </div>
+    </div>
+
+    <div class="section-title section-title-collapsible" onclick="toggleSection('scene-switch-menu')">
+      Scene Switch Menu Display
+      <span class="section-toggle" id="scene-switch-menu-toggle">▼</span>
+    </div>
+    <div class="section-content" id="scene-switch-menu-content">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Enable Tip Menu Display</label>
+        <select id="menu-display-enabled" onchange="updatePreview()">
+          <option value="false">Disabled</option>
+          <option value="true">Enabled</option>
+        </select>
+        <div class="help-text">Periodically show a table of tip prices and scenes on the overlay</div>
+      </div>
+      <div class="form-group">
+        <label>Display Position</label>
+        <select id="menu-display-position" onchange="updatePreview()">
+          <option value="top-right">Top Right</option>
+          <option value="top-left">Top Left</option>
+          <option value="top-center">Top Center</option>
+          <option value="bottom-right">Bottom Right</option>
+          <option value="bottom-left">Bottom Left</option>
+          <option value="bottom-center">Bottom Center</option>
+          <option value="center">Center</option>
+        </select>
+        <div class="help-text">Where to show the menu table on screen</div>
+      </div>
+      <div class="form-group">
+        <label>Display Interval (seconds)</label>
+        <input type="number" id="menu-display-interval" value="30" min="5" max="3600" title="Display interval in seconds" oninput="updateMenuIntervalDisplay()">
+        <div class="help-text help-text-row">
+          <span>How often to show the menu (in seconds)</span>
+          <span id="menu-interval-minutes" class="help-text-aside">0m 30s</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Display Duration (seconds)</label>
+        <input type="number" id="menu-display-duration" value="8" min="3" max="60" title="Display duration in seconds">
+        <div class="help-text">How long the menu stays visible (in seconds)</div>
+      </div>
+      <div class="form-group">
+        <label>Scale</label>
+        <div class="slider-group">
+          <input type="range" id="menu-display-scale" min="1" max="4" step="0.05" value="1" title="Menu display scale" oninput="this.nextElementSibling.textContent = parseFloat(this.value).toFixed(2); updatePreview()">
+          <span class="slider-value" id="menu-display-scale-value">1.00</span>
+        </div>
+        <div class="help-text">Size of the menu overlay</div>
+      </div>
+      <div class="form-group">
+        <label>Animation Style</label>
+        <select id="menu-display-animation" title="Menu animation style" onchange="updatePreview()">
+          <option value="fade">Fade</option>
+          <option value="slide-down">Slide Down</option>
+          <option value="slide-up">Slide Up</option>
+          <option value="zoom">Zoom</option>
+          <option value="none">None (Instant)</option>
+        </select>
+        <div class="help-text">How the menu appears and disappears</div>
+      </div>
+      <div class="form-group">
+        <label>Background Opacity</label>
+        <div class="slider-group">
+          <input type="range" id="menu-display-bg-opacity" min="0" max="1" step="0.01" value="1" title="Menu background opacity" oninput="this.nextElementSibling.textContent = parseFloat(this.value).toFixed(2); updatePreview()">
+          <span class="slider-value" id="menu-display-bg-opacity-value">1.00</span>
+        </div>
+        <div class="help-text">Background transparency of the menu overlay (0 = fully transparent)</div>
+      </div>
+    </div>
+    </div>
+
+    <div class="section-title">Scene Switching by Tip Amount</div>
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+      <button type="button" id="import-scenes-btn" class="btn" onclick="importScenesFromOBS()">⬇ Import Scene names from OBS</button>
+      <span style="font-size: 12px; color: var(--text-dim);">Requires Advanced Access enabled in OBS overlay, and "All connected" above. When scene names have been imported, you <br>can select them in a list instead of having to write them. The Default Scene name can also be selected with a menu.</span>
+    </div>
+    <div class="info-box warning-box" style="margin-bottom: 16px;">
+      ⚠️ <strong>No OBS connection yet?</strong> You can type scene names manually — they must match OBS <strong>exactly</strong> (capitals and spaces matter).
+    </div>
+    
+    <div class="scene-label" style="display: grid; grid-template-columns: 120px 1fr 120px 80px 50px; gap: 12px; margin-bottom: 10px; padding: 0 15px;">
+      <span>Tip Amount</span>
+      <span>OBS Scene Name</span>
+      <span>Return (sec)<br>0 = No return</span>
+      <span>Show Overlay</span>
+      <span>Delete</span>
+      <span></span>
+    </div>
+    
+    <div id="scene-tips-container"></div>
+    <button class="btn" onclick="addSceneTip()" style="width: 100%; margin-top: 10px;">+ Add Scene Trigger</button>
+    
+    <div class="info-box" style="margin-top: 20px;">
+      💡 <strong>Return Delay Tips:</strong><br>
+      • <strong>0 seconds</strong> = Stay on this scene forever (manual return)<br>
+      • <strong>30-60 seconds</strong> = Good for quick shows<br>
+      • <strong>120+ seconds</strong> = Extended performances
+    </div>
+    
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SERVER SETUP TAB
+═══════════════════════════════════════════════════════════ -->
+
+<div id="server-content" class="content full-width">
+  <div style="max-width: 900px; margin: 0 auto; padding: 40px; overflow-y: auto; max-height: calc(100vh - 125px);">
+    
+    <div class="section-title">Platform Configuration</div>
+    
+    <div class="config-section">
+      <h3 style="margin-bottom: 15px;">Select Platforms</h3>
+      <p style="margin-bottom: 20px; line-height: 1.6; color: var(--text-dim);">
+        Enable one or both platforms. You can run Chaturbate and Joystick.tv simultaneously!
+      </p>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px;">
+        <div class="platform-toggle" onclick="togglePlatform('chaturbate')" id="chaturbate-toggle" style="cursor: pointer; padding: 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; transition: all 0.2s;" id="chaturbate-check">
+              <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity 0.2s;" id="chaturbate-dot"></div>
+            </div>
+            <strong style="font-size: 16px;">Chaturbate</strong>
+          </div>
+          <div style="color: var(--text-dim); font-size: 13px;">HTTP Polling • ~2s delay</div>
+        </div>
+        
+        <div class="platform-toggle" onclick="togglePlatform('joystick')" id="joystick-toggle" style="cursor: pointer; padding: 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; transition: all 0.2s;" id="joystick-check">
+              <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity 0.2s;" id="joystick-dot"></div>
+            </div>
+            <strong style="font-size: 16px;">Joystick.tv</strong>
+          </div>
+          <div style="color: var(--text-dim); font-size: 13px;">WebSocket • <500ms instant</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="section-title">Logging</div>
+    <div class="config-section">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
+        <div>
+          <strong>Verbose Logging</strong>
+          <div style="color: var(--text-dim); font-size: 13px; margin-top: 4px; line-height: 1.5;">
+            When <strong>off</strong>, the server only logs tips, user enter/leave, and errors — ideal for long streams.<br>
+            When <strong>on</strong>, all debug events are logged (useful for troubleshooting).
+          </div>
+        </div>
+        <div onclick="toggleVerboseLogging()" id="verbose-toggle"
+             style="cursor: pointer; padding: 12px 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s; display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+          <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center;">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity 0.2s;" id="verbose-dot"></div>
+          </div>
+          <span id="verbose-label" style="font-weight: 600; min-width: 20px;">Off</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chaturbate Configuration -->
+    <div id="chaturbate-config-section" style="display: none;">
+      <div class="section-title">Chaturbate Configuration</div>
+      
+      <div class="config-section">
+       <h3 style="margin-bottom: 15px;">Step 1: Get Your API Token</h3>
+        <p style="margin-bottom: 15px; line-height: 1.6;">
+          Go to <a href="https://chaturbate.com/statsapi/authtoken/" target="_blank" style="color: var(--accent);">chaturbate.com/statsapi/authtoken/</a>
+          and click "Generate Token" if you don't have one yet.
+        </p>
+        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid var(--accent);">
+          <strong style="display: block; margin-bottom: 10px;">Token Settings:</strong>
+          <ul style="line-height: 1.8; padding-left: 20px; margin: 0;">
+            <li><strong>Token name:</strong> Events API <em style="opacity: 0.7;">(can be anything)</em></li>
+            <li><strong>Scopes:</strong> ✅ Select <strong>Events API</strong></li>
+          </ul>
+          <p style="margin: 15px 0 0 0; line-height: 1.6;">
+            Click <strong>"Generate Auth Token"</strong>, then copy the <strong>Token URL</strong> that appears.
+          </p>
+        </div>
+         
+        <h3 style="margin: 25px 0 15px;">Step 2: Choose Input Method</h3>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="config-method" value="url" checked onchange="toggleConfigMethod()">
+            Full URL (Easier)
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="config-method" value="separate" onchange="toggleConfigMethod()">
+            Username + Token (Separate)
+          </label>
+        </div>
+        
+        <div id="url-config" style="margin-top: 20px;">
+          <div class="form-group">
+            <label>Events API URL</label>
+            <textarea id="events-api-url" rows="3" placeholder="https://eventsapi.chaturbate.com/events/your_username/your_token/" style="font-family: 'JetBrains Mono';"></textarea>
+            <div class="help-text">Paste the complete URL from the Chaturbate page</div>
+          </div>
+        </div>
+        
+        <div id="separate-config" style="display: none; margin-top: 20px;">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="cb-username" placeholder="your_username">
+          </div>
+          <div class="form-group">
+            <label>Token</label>
+            <input type="text" id="cb-token" placeholder="your_token_here">
+          </div>
+        </div>
+        
+        <div class="info-box" style="margin-top: 20px;">
+          ⚠️ <strong>Security Note:</strong> Keep this URL/token private! Anyone with it can monitor your room events (How many tokens you get, who tip you etc.).
+        </div>
+      </div>
+    </div>
+    
+    <!-- Joystick.tv Configuration -->
+    <div id="joystick-config-section" style="display: none;">
+      <div class="section-title">Joystick.tv Configuration</div>
+      
+      <div class="config-section">
+        <h3 style="margin-bottom: 15px;">General information</h3>
+        <p style="margin-bottom: 10px; line-height: 1.6;">
+          Joystick.tv requires the WebSocket library. <strong>Good news:</strong> The server script can install it automatically!
+        </p>
+        
+        <div style="background: rgba(76,175,80,0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #4CAF50;">
+          <strong style="display: block; margin-bottom: 10px; color: #4CAF50;">✨ Automatic Installation (Recommended)</strong>
+          <p style="margin: 0; line-height: 1.6;">
+            When you run <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">oss_server.js</code> with Joystick.tv enabled, if the WebSocket library is missing, the server will:
+          </p>
+          <ol style="margin: 10px 0 0 20px; line-height: 1.8;">
+            <li>Detect that it's not installed</li>
+            <li>Ask: "Install WebSocket library now? (Y/n)"</li>
+            <li>Install it automatically when you press Y</li>
+            <li>Continue starting the server</li>
+          </ol>
+          <p style="margin: 10px 0 0 0; line-height: 1.6;">
+            <strong>Nothing to do in advance!</strong> Just run the server and let it handle it. 🎉
+          </p>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid var(--accent);">
+          <strong style="display: block; margin-bottom: 10px;">📘 Manual Installation (Optional)</strong>
+          <p style="margin: 0 0 10px 0; line-height: 1.6;">
+            If you prefer to install it manually first, navigate to the project folder and run:
+          </p>
+          <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; margin-bottom: 10px;">
+            npm install ws
+          </div>
+          <p style="margin: 0; line-height: 1.6; opacity: 0.8;">
+            Works on Mac, Windows, Linux - but remember it must be in the same folder as oss_server.js
+          </p>
+        </div>
+        
+        <h3 style="margin: 25px 0 15px;">Step 1: Create Bot Application</h3>
+        <p style="margin-bottom: 15px; line-height: 1.6;">
+          Go to <a href="https://joystick.tv/applications/new" target="_blank" style="color: var(--accent);">joystick.tv/applications/new</a> to create a new bot application
+        </p>
+        
+        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid var(--accent);">
+          <strong style="display: block; margin-bottom: 10px;">Bot Settings:</strong>
+          <ul style="line-height: 1.8; padding-left: 20px; margin: 0;">
+            <li><strong>Name:</strong> OBS Scene Switcher</li>
+            <li><strong>Description:</strong> Automatically switches OBS scenes based on tips</li>
+            <li><strong>OAuth Redirect URL:</strong> <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">http://localhost:3000/callback</code></li>
+          </ul>
+        </div>
+        
+        <div style="background: rgba(255,78,203,0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid var(--accent);">
+          <strong style="display: block; margin-bottom: 10px; color: var(--accent);">⚠️ Required Permissions:</strong>
+          <ul style="line-height: 1.8; padding-left: 20px; margin: 0;">
+            <li>✅ <strong>ReceiveStreamEvents</strong> ← Must enable!</li>
+            <li>✅ ViewUserPresence (optional)</li>
+            <li>⭕ All others (not needed)</li>
+          </ul>
+        </div>
+        
+        <h3 style="margin: 25px 0 15px;">Step 2: Get Credentials</h3>
+        <p style="margin-bottom: 15px; line-height: 1.6;">
+          Go to <a href="https://joystick.tv/applications" target="_blank" style="color: var(--accent);">joystick.tv/applications</a>, scroll down to find the bot you created in step 1, click <strong>Options → Settings</strong> to view your credentials.
+        </p>
+        
+        <div class="form-group">
+          <label>OAuth Client ID</label>
+          <input type="text" id="joystick-client-id" placeholder="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+          <div class="help-text">Copy from bot settings page</div>
+        </div>
+        
+        <div class="form-group">
+          <label>OAuth Client Secret</label>
+          <input type="text" id="joystick-client-secret" placeholder="xyz123abc456def789">
+          <div class="help-text">Copy from bot settings page (keep this secret!)</div>
+        </div>
+        
+        <h3 style="margin: 25px 0 15px;">Step 3: Install Bot on Your Channel</h3>
+        <p style="margin-bottom: 15px; line-height: 1.6;">
+          At <a href="https://joystick.tv/applications" target="_blank" style="color: var(--accent);">joystick.tv/applications</a>, find your bot and click <strong>"Install"</strong>. Authorize the permissions when prompted.
+        </p>
+        
+        <div class="info-box" style="margin-top: 20px;">
+          💡 The OAuth Redirect URL is required by Joystick.tv but won't be used by our bot. We connect directly using Client ID + Secret.
+        </div>
+      </div>
+    </div>
+    
+    <!-- Save Button -->
+    <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--border);">
+      <button class="btn btn-primary" onclick="saveUnifiedServerConfig()" style="font-size: 16px; padding: 14px 28px;" id="save-server-btn" disabled>
+        💾 Download config.json
+      </button>
+      <div id="platform-warning" style="margin-top: 15px; color: var(--danger); display: none;">
+        ⚠️ Please enable at least one platform and configure its credentials
+      </div>
+    </div>
+    
+    <div class="section-title">Instructions</div>
+    <div class="config-section">
+      <ol style="line-height: 1.8; padding-left: 20px;">
+        <li>Select which platform(s) to use above</li>
+        <li>Configure credentials for enabled platform(s)</li>
+        <li>Click "Download config.json" - saves your configuration file</li>
+        <li>Place <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">config.json</code> in the same folder as <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">oss_server.js</code></li>
+        <li>Start the server (double-click START_SERVER_WINDOWS.bat on Windows or START_SERVER_MAC.command on Mac) or run: <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">node oss_server.js</code></li>
+        <li>Make sure you have set up the configuration for scene switching, and applied it. Send some test tips to trigger switch so you know the changes are like you want</li>
+        <li><strong>Start streaming!</strong></li>
+      </ol>
+      
+      <div class="info-box" style="margin-top: 20px;">
+        💡 The server automatically reads config.json on startup. For Joystick.tv users, the WebSocket library installation is fully automated - the server script handles it for you. Remember not to share the config.json file with anyone!
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ABOUT TAB
+═══════════════════════════════════════════════════════════ -->
+
+<div id="about-content" class="content full-width">
+  <div style="max-width: 900px; margin: 0 auto; padding: 40px; overflow-y: auto; max-height: calc(100vh - 125px);">
+    <h2 style="margin-bottom: 20px;">OBS Scene Switcher v1.0</h2>
+    <p style="line-height: 1.8; margin-bottom: 20px;">
+      Beautiful and user-friendly scene switcher with customizable overlay for streaming platforms.
+      Features live preview with animated demonstrations, preset themes, custom theme management, 
+      scene queue system, and comprehensive customization options.
+    </p>
+    
+    <h3 style="margin-top: 30px; margin-bottom: 15px;">Key Features</h3>
+    <ul style="line-height: 1.8; padding-left: 20px;">
+      <li><strong>Live Preview when editing themes</strong> - See changes instantly with animated previews</li>
+      <li><strong>Resizable Panels</strong> - Drag divider to adjust preview size</li>
+      <li><strong>4 Theme Presets</strong> - Cyberpunk, Minimal, Retro Wave, Luxury Gold</li>
+      <li><strong>Custom Themes</strong> - Save, load, export, and import unlimited themes</li>
+      <li><strong>Visual Gradient Builder</strong> - No CSS knowledge required</li>
+      <li><strong>6 Animation Styles</strong> - Slide, Fade, Zoom, Bounce, Stamp, Flip</li>
+      <li><strong>7 Position Options</strong> - Place alerts anywhere on screen</li>
+      <li><strong>Dual Opacity Controls</strong> - Separate box and background transparency</li>
+      <li><strong>Complete Typography Control</strong> - Individual font sizes and families</li>
+      <li><strong>Per-Scene Return Timers</strong> - Different delays for each tip amount</li>
+      <li><strong>Scene Return Progress Bar</strong> - Visual countdown at screen bottom</li>
+      <li><strong>Smart Text Color</strong> - Automatic contrast for light backgrounds</li>
+      <li><strong>Server Config Generator</strong> - Download ready-to-use config file</li>
+      <li><strong>Per-scene overlay toggle</strong> - show/hide overlay for specific scenes</li>
+      <li><strong>Global overlay toggle</strong> - for non-scene switching tips</li>
+      <li><strong>Custom test tip editor</strong> - test with any username, amount, and message</li>
+      <li><strong>Scene Change Queue</strong> - Scene switches queue up automatically, no overlaps</li>
+    </ul>
+    
+    <h3 style="margin-top: 30px; margin-bottom: 15px;">Quick Start</h3>
+    <ol style="line-height: 1.8; padding-left: 20px;">
+      <li>Add oss_overlay.html to OBS as Browser Source. You can drag and drop it, just make sure it is at the top or at least over your video sources</li>
+      <li>Open properties of oss_overlay.html and enable "Advanced access to OBS" in page permissions</li>
+      <li>Go to "Server Setup" tab and configure your streaming platforms</li>
+      <li>Download configuration file and place it in the same folder where this file is</li>
+      <li>Start the server. Easiest way is to double click START_SERVER_WINDOWS.bat on Windows, and START_SERVER_MAC.command on Mac</li>
+      <li>Customize theme and configuration in this editor</li>
+      <li>Click "Apply Changes to OBS" to push changes to OBS</li>
+      <li>Click "Send Test Tip" to preview scene switch and animations in OBS</li>
+    </ol>
+    
+    <h3 style="margin-top: 30px; margin-bottom: 15px;">Supported Platforms</h3>
+    <ul style="line-height: 1.8; padding-left: 20px;">
+      <li><strong>Chaturbate</strong> - Connects via Events API ✓</li>
+      <li><strong>Joystick.tv</strong> - Connects through WebSocket API ✓</li>
+    </ul>
+    
+    <h3 style="margin-top: 30px; margin-bottom: 15px;">Tips</h3>
+    <ul style="line-height: 1.8; padding-left: 20px;">
+      <li>You don't need to have the editor (this page) open all the time, only when making changes</li>
+      <li>The overlay toggle controls which scenes show overlays</li>
+      <li><strong>Test Editor</strong> - Click ⚙️ Edit Test Tip to customize test data</li>
+      <li><strong>Resizer</strong> - Drag divider to adjust size, the preview auto-scales</li>
+      <li><strong>Progress Bar</strong> - Empties as time runs out, customizable thickness</li>
+      <li><strong>Scene Names</strong> - Must match scene names in OBS exactly (capitals matter!). Can be imported from OBS when all is connected</li>
+    </ul>
+    
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; color: var(--text-dim);">
+      Made with ❤️ for the streaming community<br>
+      v1.0 • February 2026
+    </div>
+    
+    <div style="margin-top: 30px; padding: 20px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; text-align: center; line-height: 1.8;">
+      <strong style="color: var(--accent);">Support This Project</strong><br>
+      <span style="font-size: 14px;">If you find this software useful or want improvements, please consider making a donation at one of my streaming sites:</span><br>
+      <div style="margin-top: 12px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <a href="https://chaturbate.com/brsrk/" target="_blank" style="color: var(--accent); text-decoration: none;">Chaturbate</a>
+        <span style="color: var(--border);">•</span>
+        <a href="https://joystick.tv/u/brsrkr" target="_blank" style="color: var(--accent); text-decoration: none;">Joystick.tv</a>
+        <span style="color: var(--border);">•</span>
+        <a href="https://stripchat.com/brsrkr" target="_blank" style="color: var(--accent); text-decoration: none;">Stripchat</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Test Tip Editor Modal -->
+<div class="modal-overlay" id="test-tip-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Edit Test Tip</h3>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="test-tip-username" value="TestUser123">
+      </div>
+      <div class="form-group">
+        <label>Amount (tokens)</label>
+        <input type="number" id="test-tip-amount" value="10" min="1">
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="test-tip-message" rows="3">This is a test tip!</textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeTestTipEditor()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTestTipAndSend()">OK & Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Theme Confirmation Modal -->
+<div class="modal-overlay" id="delete-theme-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Delete Theme</h3>
+    </div>
+    <div class="modal-body">
+      <p style="margin: 0; line-height: 1.6;">Are you sure you want to delete the custom theme "<strong id="delete-theme-name"></strong>"?</p>
+      <p style="margin: 10px 0 0 0; color: var(--text-dim); font-size: 13px;">This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeDeleteThemeModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDeleteTheme()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden file input for theme import -->
+<input type="file" id="file-input" accept=".json" style="display: none;" onchange="handleFileImport(event)">
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  THEME PRESETS
+// ═══════════════════════════════════════════════════════════
+
+const THEME_PRESETS = {
+  cyberpunk: {
+    name: 'Cyberpunk',
+    accent: '#ff4ecb',
+    gold: '#ffd166',
+    teal: '#06d6a0',
+    bgColor1: '#1a0a1e',
+    bgColor2: '#0d1a2e',
+    bgAngle: 135,
+    bgOpacity: 1,
+    displayFont: "'Bebas Neue', cursive",
+    bodyFont: "'DM Sans', sans-serif",
+    radius: 12,
+    borderWidth: 2,
+    boxWidth: 480,
+    opacity: 1,
+    position: 'bottom-right',
+    positionOffset: 60,
+    animationType: 'slide',
+    slideDuration: 550,
+    shimmer: true,
+    fontSizeLabel: 11,
+    fontSizeUsername: 36,
+    fontSizeTokens: 28,
+    fontSizeMessage: 14,
+    topBarHeight: 4,
+    progressBarEnabled: true,
+    progressBarHeight: 8
+  },
+  
+  minimal: {
+    name: 'Minimal',
+    accent: '#000000',
+    gold: '#666666',
+    teal: '#333333',
+    bgColor1: '#f5f5f5',
+    bgColor2: '#ffffff',
+    bgAngle: 135,
+    bgOpacity: 0.95,
+    displayFont: "'Anton', sans-serif",
+    bodyFont: "'Inter', sans-serif",
+    radius: 4,
+    borderWidth: 1,
+    boxWidth: 480,
+    opacity: 1,
+    position: 'bottom-right',
+    positionOffset: 60,
+    animationType: 'fade',
+    slideDuration: 400,
+    shimmer: false,
+    fontSizeLabel: 10,
+    fontSizeUsername: 32,
+    fontSizeTokens: 24,
+    fontSizeMessage: 13,
+    topBarHeight: 3,
+    progressBarEnabled: true,
+    progressBarHeight: 6
+  },
+  
+  retro: {
+    name: 'Retro Wave',
+    accent: '#ff006e',
+    gold: '#ffbe0b',
+    teal: '#8338ec',
+    bgColor1: '#2b0548',
+    bgColor2: '#1a0329',
+    bgAngle: 135,
+    bgOpacity: 1,
+    displayFont: "'Audiowide', cursive",
+    bodyFont: "'Poppins', sans-serif",
+    radius: 0,
+    borderWidth: 3,
+    boxWidth: 480,
+    opacity: 1,
+    position: 'bottom-right',
+    positionOffset: 60,
+    animationType: 'stamp',
+    slideDuration: 700,
+    shimmer: true,
+    fontSizeLabel: 11,
+    fontSizeUsername: 38,
+    fontSizeTokens: 30,
+    fontSizeMessage: 14,
+    topBarHeight: 5,
+    progressBarEnabled: true,
+    progressBarHeight: 8
+  },
+  
+  luxury: {
+    name: 'Luxury Gold',
+    accent: '#d4af37',
+    gold: '#ffd700',
+    teal: '#c9a050',
+    bgColor1: '#1a1410',
+    bgColor2: '#0d0a08',
+    bgAngle: 135,
+    bgOpacity: 1,
+    displayFont: "'Orbitron', sans-serif",
+    bodyFont: "'Poppins', sans-serif",
+    radius: 8,
+    borderWidth: 2,
+    boxWidth: 480,
+    opacity: 1,
+    position: 'bottom-right',
+    positionOffset: 60,
+    animationType: 'zoom',
+    slideDuration: 600,
+    shimmer: true,
+    fontSizeLabel: 11,
+    fontSizeUsername: 36,
+    fontSizeTokens: 28,
+    fontSizeMessage: 14,
+    topBarHeight: 4,
+    progressBarEnabled: true,
+    progressBarHeight: 8
+  }
+};
+
+let currentPreset = 'cyberpunk';
+let savedThemes = JSON.parse(localStorage.getItem('customThemes') || '{}');
+
+// ═══════════════════════════════════════════════════════════
+//  SCENE TIPS
+// ═══════════════════════════════════════════════════════════
+
+let sceneTips = [];
+
+let obsScenes = []; // populated from /scenes when overlay is connected
+
+// ═══════════════════════════════════════════════════════════
+//  INITIALIZATION
+// ═══════════════════════════════════════════════════════════
+
+function init() {
+  // Load saved API credentials if available
+  loadSavedCredentials();
+  
+  // Load saved configuration if available
+  loadSavedConfiguration();
+
+  // Restore collapsible section states
+  initSectionStates();
+
+  // Load platform settings (Chaturbate/Joystick toggles)
+  loadPlatformSettings();
+  
+  renderThemePresets();
+  renderSavedThemes();
+  loadTheme(currentPreset);
+  renderSceneTips();
+  updateGradient();
+  updatePreview();
+  
+  // Show Server Setup tab if credentials not configured, otherwise Config tab
+  const hasSavedCredentials = localStorage.getItem('apiConfigured') === 'true';
+  if (!hasSavedCredentials) {
+    switchTab('server');
+  } else {
+    switchTab('config');
+  }
+  
+  // Setup config change detection
+  setupConfigChangeDetection();
+  
+  // Setup platform credential change listeners
+  setupPlatformListeners();
+}
+
+function loadSavedConfiguration() {
+  const savedConfig = localStorage.getItem('savedConfig');
+  const savedSceneTipsData = localStorage.getItem('savedSceneTips');
+  
+  if (savedConfig) {
+    try {
+      const config = JSON.parse(savedConfig);
+      
+      // Load config values into inputs
+      if (config.ALERT_DURATION_SECONDS) {
+        document.getElementById('alert-duration').value = config.ALERT_DURATION_SECONDS;
+      }
+      if (config.DEFAULT_SCENE) {
+        document.getElementById('default-scene').value = config.DEFAULT_SCENE;
+      }
+      if (config.SCENE_SWITCH_DELAY_SECONDS !== undefined) {
+        document.getElementById('scene-switch-delay').value = config.SCENE_SWITCH_DELAY_SECONDS;
+      }
+      if (config.SHOW_OTHER_TIPS_OVERLAY !== undefined) {
+        document.getElementById('show-other-tips-overlay').value = config.SHOW_OTHER_TIPS_OVERLAY.toString();
+      }
+      if (config.MENU_DISPLAY_ENABLED !== undefined) {
+        document.getElementById('menu-display-enabled').value = config.MENU_DISPLAY_ENABLED.toString();
+      }
+      if (config.MENU_DISPLAY_INTERVAL_SECONDS) {
+        document.getElementById('menu-display-interval').value = config.MENU_DISPLAY_INTERVAL_SECONDS;
+      } else if (config.MENU_DISPLAY_INTERVAL_MINUTES) {
+        // backward compat: convert old minutes value to seconds
+        document.getElementById('menu-display-interval').value = config.MENU_DISPLAY_INTERVAL_MINUTES * 60;
+      }
+      updateMenuIntervalDisplay();
+      if (config.MENU_DISPLAY_DURATION_SECONDS) {
+        document.getElementById('menu-display-duration').value = config.MENU_DISPLAY_DURATION_SECONDS;
+      }
+      if (config.MENU_DISPLAY_POSITION) {
+        document.getElementById('menu-display-position').value = config.MENU_DISPLAY_POSITION;
+      }
+      if (config.MENU_DISPLAY_SCALE !== undefined) {
+        document.getElementById('menu-display-scale').value = config.MENU_DISPLAY_SCALE;
+        document.getElementById('menu-display-scale-value').textContent = parseFloat(config.MENU_DISPLAY_SCALE).toFixed(2);
+      }
+      if (config.MENU_DISPLAY_ANIMATION) {
+        document.getElementById('menu-display-animation').value = config.MENU_DISPLAY_ANIMATION;
+      }
+      if (config.MENU_DISPLAY_BG_OPACITY !== undefined) {
+        document.getElementById('menu-display-bg-opacity').value = config.MENU_DISPLAY_BG_OPACITY;
+        document.getElementById('menu-display-bg-opacity-value').textContent = parseFloat(config.MENU_DISPLAY_BG_OPACITY).toFixed(2);
+      }
+    } catch (err) {
+      console.log('Could not load saved config:', err);
+    }
+  }
+  
+  if (savedSceneTipsData) {
+    try {
+      const loadedSceneTips = JSON.parse(savedSceneTipsData);
+      if (Array.isArray(loadedSceneTips)) {
+        sceneTips = loadedSceneTips;
+      }
+    } catch (err) {
+      console.log('Could not load saved scene tips:', err);
+    }
+  }
+}
+
+function updateMenuIntervalDisplay() {
+  const secs = parseInt(document.getElementById('menu-display-interval').value) || 0;
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  document.getElementById('menu-interval-minutes').textContent = m + 'm ' + s + 's';
+}
+
+function setupConfigChangeDetection() {
+  const applyButton = document.querySelector('.btn-primary[onclick="applyLive()"]');
+  if (!applyButton) return;
+  
+  // Mark button as needing apply
+  function markNeedsApply() {
+    applyButton.classList.add('needs-apply');
+  }
+  
+  // Listen to all config inputs
+  const configInputs = [
+    'alert-duration',
+    'default-scene',
+    'scene-switch-delay',
+    'show-other-tips-overlay',
+    'menu-display-enabled',
+    'menu-display-interval',
+    'menu-display-duration',
+    'menu-display-position',
+    'menu-display-scale',
+    'menu-display-animation',
+    'menu-display-bg-opacity',
+  ];
+  
+  configInputs.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.addEventListener('input', markNeedsApply);
+      element.addEventListener('change', markNeedsApply);
+    }
+  });
+  
+  // Watch for scene tip changes
+  const originalUpdateSceneTip = window.updateSceneTip;
+  window.updateSceneTip = function(...args) {
+    originalUpdateSceneTip(...args);
+    markNeedsApply();
+  };
+  
+  const originalRemoveSceneTip = window.removeSceneTip;
+  window.removeSceneTip = function(...args) {
+    originalRemoveSceneTip(...args);
+    markNeedsApply();
+  };
+  
+  const originalAddSceneTip = window.addSceneTip;
+  window.addSceneTip = function(...args) {
+    originalAddSceneTip(...args);
+    markNeedsApply();
+  };
+
+  // Watch all theme inputs for changes
+  document.querySelectorAll('#theme-content input, #theme-content select').forEach(el => {
+    el.addEventListener('input', markNeedsApply);
+    el.addEventListener('change', markNeedsApply);
+  });
+}
+
+function loadSavedCredentials() {
+  const savedUrl = localStorage.getItem('eventsApiUrl');
+  const savedUsername = localStorage.getItem('ossUsername');
+  const savedToken = localStorage.getItem('ossToken');
+  
+  if (savedUrl) {
+    document.getElementById('events-api-url').value = savedUrl;
+  }
+  
+  if (savedUsername && savedToken) {
+    document.getElementById('cb-username').value = savedUsername;
+    document.getElementById('cb-token').value = savedToken;
+  }
+}
+
+function saveCredentials(method, username, token, url) {
+  if (method === 'url' && url) {
+    localStorage.setItem('eventsApiUrl', url);
+    localStorage.setItem('apiConfigured', 'true');
+  } else if (method === 'separate' && username && token) {
+    localStorage.setItem('ossUsername', username);
+    localStorage.setItem('ossToken', token);
+    localStorage.setItem('apiConfigured', 'true');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════════════════════
+
+function switchTab(tabName) {
+  // Remove active from all tabs and content
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+  
+  // Add active to the clicked tab and corresponding content
+  const tabButton = document.getElementById(tabName + '-tab');
+  if (tabButton) {
+    tabButton.classList.add('active');
+  }
+  
+  const contentEl = document.getElementById(tabName + '-content');
+  if (contentEl) {
+    contentEl.classList.add('active');
+  }
+  
+  if (tabName === 'theme' || tabName === 'config') {
+    updatePreview();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GLOBAL SCROLL REDIRECT
+// ═══════════════════════════════════════════════════════════
+
+// Allow scrolling anywhere on full-width tab pages, not just inside the inner column
+document.querySelectorAll('.content.full-width').forEach(contentEl => {
+  contentEl.addEventListener('wheel', (e) => {
+    // Only redirect if the event target is not already inside a scrollable child
+    const scrollable = contentEl.querySelector('[style*="overflow-y"]') || contentEl.querySelector('.left-panel');
+    if (!scrollable) return;
+    if (scrollable.contains(e.target)) return;
+    e.preventDefault();
+    scrollable.scrollTop += e.deltaY;
+  }, { passive: false });
+});
+
+// ═══════════════════════════════════════════════════════════
+//  NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════
+
+function showNotification(message, isError = false) {
+  const notification = document.getElementById('notification');
+  notification.textContent = message;
+  notification.classList.toggle('error', isError);
+  notification.classList.add('show');
+  
+  setTimeout(() => {
+    notification.classList.remove('show');
+  }, 5000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  THEME PRESETS
+// ═══════════════════════════════════════════════════════════
+
+function renderThemePresets() {
+  const container = document.getElementById('theme-presets');
+  container.innerHTML = '';
+  
+  for (const [key, theme] of Object.entries(THEME_PRESETS)) {
+    const card = document.createElement('div');
+    card.className = `theme-card ${key === currentPreset ? 'active' : ''}`;
+    card.onclick = () => { loadTheme(key); currentPreset = key; renderThemePresets(); };
+    
+    card.innerHTML = `
+      <div class="theme-name">${theme.name}</div>
+      <div class="theme-colors">
+        <div style="background: ${theme.accent}"></div>
+        <div style="background: ${theme.gold}"></div>
+        <div style="background: ${theme.teal}"></div>
+      </div>
+    `;
+    
+    container.appendChild(card);
+  }
+}
+
+function loadTheme(key) {
+  const theme = THEME_PRESETS[key] || savedThemes[key];
+  if (!theme) return;
+  
+  document.getElementById('accent').value = theme.accent;
+  document.getElementById('accent-text').value = theme.accent;
+  document.getElementById('gold').value = theme.gold;
+  document.getElementById('gold-text').value = theme.gold;
+  document.getElementById('teal').value = theme.teal;
+  document.getElementById('teal-text').value = theme.teal;
+  
+  document.getElementById('bg-color1').value = theme.bgColor1;
+  document.getElementById('bg-color1-text').value = theme.bgColor1;
+  document.getElementById('bg-color2').value = theme.bgColor2;
+  document.getElementById('bg-color2-text').value = theme.bgColor2;
+  document.getElementById('gradient-angle').value = theme.bgAngle;
+  
+  document.getElementById('display-font').value = theme.displayFont;
+  document.getElementById('body-font').value = theme.bodyFont;
+  document.getElementById('radius').value = theme.radius;
+  document.getElementById('border-width').value = theme.borderWidth;
+  document.getElementById('box-width').value = theme.boxWidth;
+  document.getElementById('opacity').value = theme.opacity;
+  
+  if (theme.bgOpacity !== undefined) {
+    document.getElementById('bg-opacity').value = theme.bgOpacity;
+  } else {
+    document.getElementById('bg-opacity').value = 1;
+  }
+  
+  document.getElementById('position').value = theme.position;
+  document.getElementById('position-offset').value = theme.positionOffset;
+  document.getElementById('animation-type').value = theme.animationType;
+  document.getElementById('slide-duration').value = theme.slideDuration;
+  document.getElementById('shimmer').value = theme.shimmer.toString();
+  
+  document.getElementById('font-size-label').value = theme.fontSizeLabel;
+  document.getElementById('font-size-username').value = theme.fontSizeUsername;
+  document.getElementById('font-size-tokens').value = theme.fontSizeTokens;
+  document.getElementById('font-size-message').value = theme.fontSizeMessage;
+  
+  if (theme.topBarHeight !== undefined) {
+    document.getElementById('top-bar-height').value = theme.topBarHeight;
+  }
+  
+  if (theme.progressBarEnabled !== undefined) {
+    document.getElementById('progress-bar-enabled').value = theme.progressBarEnabled.toString();
+  }
+  
+  if (theme.progressBarHeight !== undefined) {
+    document.getElementById('progress-bar-height').value = theme.progressBarHeight;
+  }
+  
+  // Pre-fill custom theme name if loading a saved theme
+  if (savedThemes[key] && theme.name) {
+    document.getElementById('custom-theme-name').value = theme.name;
+  }
+  
+  updateGradient();
+  updatePreview();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CUSTOM THEMES
+// ═══════════════════════════════════════════════════════════
+
+function renderSavedThemes() {
+  const container = document.getElementById('saved-themes');
+  const themes = Object.entries(savedThemes);
+  
+  if (themes.length === 0) {
+    container.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 20px; font-size: 13px;">No saved themes yet</div>';
+    return;
+  }
+  
+  container.innerHTML = '';
+  themes.forEach(([key, theme]) => {
+    const item = document.createElement('div');
+    item.className = 'saved-theme-item';
+
+    const leftDiv = document.createElement('div');
+    leftDiv.style.cssText = 'display: flex; align-items: center; gap: 10px; flex: 1;';
+
+    const colorsDiv = document.createElement('div');
+    colorsDiv.className = 'theme-colors';
+    colorsDiv.style.cssText = 'width: 60px; flex-shrink: 0;';
+    [theme.accent || '#ff4ecb', theme.gold || '#ffd166', theme.teal || '#06d6a0'].forEach(color => {
+      const swatch = document.createElement('div');
+      swatch.style.background = color;
+      colorsDiv.appendChild(swatch);
+    });
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'saved-theme-name';
+    nameDiv.textContent = theme.name;
+
+    leftDiv.appendChild(colorsDiv);
+    leftDiv.appendChild(nameDiv);
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'saved-theme-actions';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'btn btn-small';
+    loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', () => loadTheme(key));
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-small btn-danger';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => deleteTheme(key));
+
+    actionsDiv.appendChild(loadBtn);
+    actionsDiv.appendChild(deleteBtn);
+
+    item.appendChild(leftDiv);
+    item.appendChild(actionsDiv);
+    container.appendChild(item);
+  });
+}
+
+function saveCustomTheme() {
+  const name = document.getElementById('custom-theme-name').value.trim();
+  if (!name) {
+    showNotification('Please enter a theme name', true);
+    return;
+  }
+  
+  const key = name.toLowerCase().replace(/\s+/g, '-');
+  const theme = getCurrentTheme();
+  theme.name = name;
+  
+  savedThemes[key] = theme;
+  localStorage.setItem('customThemes', JSON.stringify(savedThemes));
+  
+  renderSavedThemes();
+  showNotification(`Theme "${name}" saved!`);
+  document.getElementById('custom-theme-name').value = '';
+}
+
+let themeToDelete = null;
+
+function deleteTheme(key) {
+  const themeName = savedThemes[key]?.name || 'this theme';
+  document.getElementById('delete-theme-name').textContent = themeName;
+  themeToDelete = key;
+  document.getElementById('delete-theme-modal').classList.add('show');
+}
+
+function closeDeleteThemeModal() {
+  document.getElementById('delete-theme-modal').classList.remove('show');
+  themeToDelete = null;
+}
+
+function confirmDeleteTheme() {
+  if (themeToDelete) {
+    delete savedThemes[themeToDelete];
+    localStorage.setItem('customThemes', JSON.stringify(savedThemes));
+    renderSavedThemes();
+    showNotification('Theme deleted');
+    closeDeleteThemeModal();
+  }
+}
+
+function exportTheme() {
+  const theme = getCurrentTheme();
+  const name = document.getElementById('custom-theme-name').value.trim() || 'custom-theme';
+  theme.name = name;
+  
+  const json = JSON.stringify(theme, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name.toLowerCase().replace(/\s+/g, '-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  showNotification('Theme exported!');
+}
+
+function importTheme() {
+  document.getElementById('file-input').click();
+}
+
+const THEME_ALLOWED_KEYS = new Set([
+  'name', 'accent', 'gold', 'teal', 'background', 'bgColor1', 'bgColor2',
+  'radius', 'borderWidth', 'boxWidth', 'opacity', 'topBarHeight', 'bgOpacity',
+  'fontSizeLabel', 'fontSizeUsername', 'fontSizeTokens', 'fontSizeMessage',
+  'displayFont', 'bodyFont', 'positionLeft', 'positionRight', 'positionTop', 'positionBottom',
+  'animationType', 'animationDuration', 'animationEase'
+]);
+
+function sanitizeTheme(raw) {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const clean = {};
+  for (const key of THEME_ALLOWED_KEYS) {
+    if (key in raw) {
+      const val = raw[key];
+      // Only allow string or number values, no nested objects
+      if (typeof val === 'string' || typeof val === 'number') {
+        clean[key] = typeof val === 'string' ? val.slice(0, 200) : val;
+      }
+    }
+  }
+  return clean;
+}
+
+function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const raw = JSON.parse(e.target.result);
+      const theme = sanitizeTheme(raw);
+      if (!theme) { showNotification('Invalid theme file', true); return; }
+      applyThemeToForm(theme);
+
+      // Save to the themes list
+      const name = theme.name || file.name.replace(/\.json$/i, '') || 'Imported Theme';
+      theme.name = name;
+      const key = name.toLowerCase().replace(/\s+/g, '-');
+      savedThemes[key] = theme;
+      localStorage.setItem('customThemes', JSON.stringify(savedThemes));
+      renderSavedThemes();
+
+      showNotification(`Theme "${name}" imported!`);
+    } catch (err) {
+      showNotification('Invalid theme file', true);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function applyThemeToForm(theme) {
+  if (theme.accent) document.getElementById('accent').value = theme.accent;
+  if (theme.gold) document.getElementById('gold').value = theme.gold;
+  if (theme.teal) document.getElementById('teal').value = theme.teal;
+  // ... apply all other fields
+  updateGradient();
+  updatePreview();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COLOR SYNCING
+// ═══════════════════════════════════════════════════════════
+
+function syncColor(id) {
+  const textVal = document.getElementById(id + '-text').value;
+  document.getElementById(id).value = textVal;
+  updatePreview();
+}
+
+function syncBgColor(id) {
+  const textVal = document.getElementById(id + '-text').value;
+  document.getElementById(id).value = textVal;
+  updateGradient();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GRADIENT BUILDER
+// ═══════════════════════════════════════════════════════════
+
+function updateGradient() {
+  const color1 = document.getElementById('bg-color1').value;
+  const color2 = document.getElementById('bg-color2').value;
+  const angle = document.getElementById('gradient-angle').value;
+  
+  document.getElementById('bg-color1-text').value = color1;
+  document.getElementById('bg-color2-text').value = color2;
+  document.getElementById('gradient-angle-value').textContent = angle;
+  
+  const gradient = `linear-gradient(${angle}deg, ${color1} 0%, ${color2} 100%)`;
+  document.getElementById('gradient-preview').style.background = gradient;
+  
+  updatePreview();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LIVE PREVIEW
+// ═══════════════════════════════════════════════════════════
+
+function updatePreview() {
+  const theme = getCurrentTheme();
+  const container = document.getElementById('preview-container');
+
+  // Update opacity displays
+  document.getElementById('opacity-value').textContent = parseFloat(document.getElementById('opacity').value).toFixed(2);
+  document.getElementById('bg-opacity-value').textContent = parseFloat(document.getElementById('bg-opacity').value).toFixed(2);
+
+  const gradient = `linear-gradient(${theme.bgAngle}deg, ${theme.bgColor1} 0%, ${theme.bgColor2} 100%)`;
+
+  // Determine if we should show dark text (for light backgrounds)
+  const isDarkText = isLightBackground(theme.bgColor1, theme.bgColor2);
+  const menuSnippet = buildMenuPreview(theme, gradient, isDarkText);
+  const messageColor = isDarkText ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.65)';
+  
+  container.innerHTML = `
+    <style>
+      #alert-box-preview {
+        position: absolute;
+        width: ${theme.boxWidth / 2}px;
+        border: ${theme.borderWidth}px solid ${theme.accent};
+        border-radius: ${theme.radius}px;
+        padding: 0;
+        box-shadow: 0 0 15px ${theme.accent}40;
+        font-family: ${theme.bodyFont};
+        opacity: ${theme.opacity};
+        overflow: hidden;
+      }
+      
+      #alert-box-preview .alert-bg-preview {
+        position: absolute;
+        inset: 0;
+        background: ${gradient};
+        opacity: ${theme.bgOpacity};
+        border-radius: ${theme.radius}px;
+        z-index: 0;
+        ${theme.bgOpacity === 0 ? "display: none;" : ""}
+      }
+      
+      #alert-box-preview::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: ${Math.max(0, theme.radius - theme.borderWidth)}px;
+        padding: ${theme.topBarHeight / 2}px;
+        background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
+        -webkit-mask: 
+          linear-gradient(#fff 0 0) content-box, 
+          linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        z-index: 10;
+        ${theme.shimmer ? 'background-size: 200% 100%; animation: shimmer-preview 3s linear infinite;' : ''}
+      }
+
+      @keyframes shimmer-preview {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 200% 0%; }
+      }
+
+      .alert-body-preview {
+        padding: 10px 12px 11px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .alert-label-preview {
+        font-family: ${theme.displayFont};
+        font-size: ${theme.fontSizeLabel / 2}px;
+        letter-spacing: 1.5px;
+        color: ${theme.accent};
+        text-transform: uppercase;
+        margin-bottom: 2px;
+        opacity: 0.85;
+      }
+
+      .alert-username-preview {
+        font-family: ${theme.displayFont};
+        font-size: ${theme.fontSizeUsername / 2}px;
+        letter-spacing: 0.5px;
+        color: ${isDarkText ? '#000' : '#fff'};
+        line-height: 1;
+        text-shadow: 0 0 10px ${theme.accent}99;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .alert-tokens-preview {
+        font-family: ${theme.displayFont};
+        font-size: ${theme.fontSizeTokens / 2}px;
+        color: ${theme.gold};
+        margin-top: 1px;
+        text-shadow: 0 0 8px ${theme.gold}80;
+      }
+
+      .alert-message-preview {
+        font-size: ${theme.fontSizeMessage / 2}px;
+        color: ${messageColor};
+        margin-top: 5px;
+        line-height: 1.3;
+        font-style: italic;
+        border-left: 1px solid ${theme.accent};
+        padding-left: 5px;
+        max-height: 60px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+      }
+
+      .alert-scene-badge-preview {
+        display: inline-block;
+        margin-top: 4px;
+        background: ${theme.teal}20;
+        border: 1px solid ${theme.teal};
+        color: ${theme.teal};
+        font-size: ${theme.fontSizeLabel / 2}px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        padding: 2px 5px;
+        border-radius: 2px;
+      }
+
+      #preview-return-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: ${theme.progressBarHeight / 2}px;
+        background: rgba(0, 0, 0, 0.5);
+        display: ${theme.progressBarEnabled ? 'block' : 'none'};
+      }
+
+      #preview-return-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
+        box-shadow: 0 0 15px ${theme.accent}, 0 -1px 5px ${theme.accent};
+        animation: preview-bar-countdown 15s linear infinite${theme.shimmer ? ', preview-bar-shimmer 3s linear infinite' : ''};
+        ${theme.shimmer ? 'background-size: 200% 100%;' : ''}
+      }
+
+      @keyframes preview-bar-countdown {
+        0%   { width: 100%; }
+        100% { width: 0%; }
+      }
+
+      @keyframes preview-bar-shimmer {
+        0%   { background-position: 0% 0%; }
+        100% { background-position: 200% 0%; }
+      }
+      ${menuSnippet.css}
+    </style>
+
+    <div id="alert-box-preview" style="${getPositionStyle(theme)}">
+      <div class="alert-bg-preview"></div>
+      <div class="alert-body-preview">
+        <div class="alert-label-preview">Tip Received ✦</div>
+        <div class="alert-username-preview">DemoUser</div>
+        <div class="alert-tokens-preview">100 tokens</div>
+        <div class="alert-message-preview">"Amazing show! 💖 This is a longer message to demonstrate multi-line text wrapping in the alert box."</div>
+        <div class="alert-scene-badge-preview">▶ Switching to VIP SCENE for x seconds</div>
+      </div>
+    </div>
+    <div id="preview-return-bar">
+      <div id="preview-return-bar-fill"></div>
+    </div>
+    ${menuSnippet.html}
+  `;
+  scalePreview();
+}
+
+function updatePreviewAnimation() {
+  // Update preview and trigger animation
+  const theme = getCurrentTheme();
+  const container = document.getElementById('preview-container');
+  
+  // Update opacity displays
+  document.getElementById('opacity-value').textContent = parseFloat(document.getElementById('opacity').value).toFixed(2);
+  document.getElementById('bg-opacity-value').textContent = parseFloat(document.getElementById('bg-opacity').value).toFixed(2);
+  
+  const gradient = `linear-gradient(${theme.bgAngle}deg, ${theme.bgColor1} 0%, ${theme.bgColor2} 100%)`;
+  const isDarkText = isLightBackground(theme.bgColor1, theme.bgColor2);
+  const messageColor = isDarkText ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.65)';
+  const menuSnippet = buildMenuPreview(theme, gradient, isDarkText);
+  
+  container.innerHTML = `
+    <style>
+      @keyframes preview-${theme.animationType} {
+        ${getAnimationKeyframes(theme.animationType)}
+      }
+      
+      #alert-box-preview {
+        position: absolute;
+        width: ${theme.boxWidth / 2}px;
+        border: ${theme.borderWidth}px solid ${theme.accent};
+        border-radius: ${theme.radius}px;
+        padding: 0;
+        box-shadow: 0 0 15px ${theme.accent}40;
+        font-family: ${theme.bodyFont};
+        opacity: ${theme.opacity};
+        overflow: hidden;
+        animation: preview-${theme.animationType} ${theme.slideDuration}ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      }
+      
+      #alert-box-preview .alert-bg-preview {
+        position: absolute;
+        inset: 0;
+        background: ${gradient};
+        opacity: ${theme.bgOpacity};
+        border-radius: ${theme.radius}px;
+        z-index: 0;
+        ${theme.bgOpacity === 0 ? "display: none;" : ""}
+      }
+      
+      #alert-box-preview::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: ${Math.max(0, theme.radius - theme.borderWidth)}px;
+        padding: ${theme.topBarHeight / 2}px;
+        background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
+        -webkit-mask: 
+          linear-gradient(#fff 0 0) content-box, 
+          linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        z-index: 10;
+        ${theme.shimmer ? 'background-size: 200% 100%; animation: shimmer-preview 3s linear infinite;' : ''}
+      }
+
+      @keyframes shimmer-preview {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 200% 0%; }
+      }
+
+      .alert-body-preview {
+        padding: 10px 12px 11px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .alert-label-preview {
+        font-family: ${theme.displayFont};
+        font-size: ${theme.fontSizeLabel / 2}px;
+        letter-spacing: 1.5px;
+        color: ${theme.accent};
+        text-transform: uppercase;
+        margin-bottom: 2px;
+        opacity: 0.85;
+      }
+
+      .alert-username-preview {
+        font-family: ${theme.displayFont};
+        font-size: ${theme.fontSizeUsername / 2}px;
+        letter-spacing: 0.5px;
+        color: ${isDarkText ? '#000' : '#fff'};
+        line-height: 1;
+        text-shadow: 0 0 10px ${theme.accent}99;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .alert-tokens-preview {
+        font-family: ${theme.displayFont};
+        font-size: ${theme.fontSizeTokens / 2}px;
+        color: ${theme.gold};
+        margin-top: 1px;
+        text-shadow: 0 0 8px ${theme.gold}80;
+      }
+
+      .alert-message-preview {
+        font-size: ${theme.fontSizeMessage / 2}px;
+        color: ${messageColor};
+        margin-top: 5px;
+        line-height: 1.3;
+        font-style: italic;
+        border-left: 1px solid ${theme.accent};
+        padding-left: 5px;
+        max-height: 60px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+      }
+
+      .alert-scene-badge-preview {
+        display: inline-block;
+        margin-top: 4px;
+        background: ${theme.teal}20;
+        border: 1px solid ${theme.teal};
+        color: ${theme.teal};
+        font-size: ${theme.fontSizeLabel / 2}px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        padding: 2px 5px;
+        border-radius: 2px;
+      }
+
+      #preview-return-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: ${theme.progressBarHeight / 2}px;
+        background: rgba(0, 0, 0, 0.5);
+        display: ${theme.progressBarEnabled ? 'block' : 'none'};
+      }
+
+      #preview-return-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
+        box-shadow: 0 0 15px ${theme.accent}, 0 -1px 5px ${theme.accent};
+        animation: preview-bar-countdown 15s linear infinite${theme.shimmer ? ', preview-bar-shimmer 3s linear infinite' : ''};
+        ${theme.shimmer ? 'background-size: 200% 100%;' : ''}
+      }
+
+      @keyframes preview-bar-countdown {
+        0%   { width: 100%; }
+        100% { width: 0%; }
+      }
+
+      @keyframes preview-bar-shimmer {
+        0%   { background-position: 0% 0%; }
+        100% { background-position: 200% 0%; }
+      }
+      ${menuSnippet.css}
+    </style>
+
+    <div id="alert-box-preview" style="${getPositionStyle(theme)}">
+      <div class="alert-bg-preview"></div>
+      <div class="alert-body-preview">
+        <div class="alert-label-preview">Tip Received ✦</div>
+        <div class="alert-username-preview">DemoUser</div>
+        <div class="alert-tokens-preview">100 tokens</div>
+        <div class="alert-message-preview">"Amazing show! 💖 This is a longer message to demonstrate multi-line text wrapping in the alert box."</div>
+        <div class="alert-scene-badge-preview">▶ Switching to VIP SCENE for x seconds</div>
+      </div>
+    </div>
+    <div id="preview-return-bar">
+      <div id="preview-return-bar-fill"></div>
+    </div>
+    ${menuSnippet.html}
+  `;
+}
+
+function getAnimationKeyframes(type) {
+  switch(type) {
+    case 'slide':
+      return '0% { transform: translateX(300px); opacity: 0; } 100% { opacity: 1; }';
+    case 'fade':
+      return '0% { opacity: 0; } 100% { opacity: 1; }';
+    case 'zoom':
+      return '0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; }';
+    case 'bounce':
+      return '0% { transform: translateY(500px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; }';
+    case 'stamp':
+      return '0% { transform: scale(2) rotate(15deg); opacity: 0; } 100% { transform: scale(1) rotate(0deg); opacity: 1; }';
+    case 'flip':
+      return '0% { transform: rotateY(90deg); opacity: 0; } 100% { transform: rotateY(0deg); opacity: 1; }';
+    default:
+      return '0% { opacity: 0; } 100% { opacity: 1; }';
+  }
+}
+
+function isLightBackground(color1, color2) {
+  // Convert hex to RGB and calculate brightness
+  const hex1 = color1.replace('#', '');
+  const hex2 = color2.replace('#', '');
+  const r1 = parseInt(hex1.substr(0, 2), 16);
+  const g1 = parseInt(hex1.substr(2, 2), 16);
+  const b1 = parseInt(hex1.substr(4, 2), 16);
+  const r2 = parseInt(hex2.substr(0, 2), 16);
+  const g2 = parseInt(hex2.substr(2, 2), 16);
+  const b2 = parseInt(hex2.substr(4, 2), 16);
+  
+  // Average brightness
+  const brightness1 = (r1 * 299 + g1 * 587 + b1 * 114) / 1000;
+  const brightness2 = (r2 * 299 + g2 * 587 + b2 * 114) / 1000;
+  const avgBrightness = (brightness1 + brightness2) / 2;
+  
+  return avgBrightness > 180; // Light background if brightness > 180
+}
+
+function getPositionStyle(theme) {
+  const offset = theme.positionOffset / 2;
+  const positions = {
+    'bottom-right': `bottom: ${offset}px; right: ${offset}px;`,
+    'bottom-left': `bottom: ${offset}px; left: ${offset}px;`,
+    'top-right': `top: ${offset}px; right: ${offset}px;`,
+    'top-left': `top: ${offset}px; left: ${offset}px;`,
+    'center': `top: 50%; left: 50%; transform: translate(-50%, -50%);`,
+    'bottom-center': `bottom: ${offset}px; left: 50%; transform: translateX(-50%);`,
+    'top-center': `top: ${offset}px; left: 50%; transform: translateX(-50%);`
+  };
+  return positions[theme.position] || positions['bottom-right'];
+}
+
+function getMenuPositionStyle() {
+  const pos = document.getElementById('menu-display-position').value;
+  const offset = '10px';
+  const positions = {
+    'top-right':     `top: ${offset}; right: ${offset};`,
+    'top-left':      `top: ${offset}; left: ${offset};`,
+    'top-center':    `top: ${offset}; left: 50%; transform: translateX(-50%);`,
+    'bottom-right':  `bottom: ${offset}; right: ${offset};`,
+    'bottom-left':   `bottom: ${offset}; left: ${offset};`,
+    'bottom-center': `bottom: ${offset}; left: 50%; transform: translateX(-50%);`,
+    'center':        `top: 50%; left: 50%; transform: translate(-50%, -50%);`,
+  };
+  return positions[pos] || positions['top-right'];
+}
+
+function buildMenuPreview(theme, gradient, isDarkText) {
+  const enabled = document.getElementById('menu-display-enabled').value === 'true';
+  if (!enabled || sceneTips.length === 0) return { css: '', html: '' };
+  const scale = parseFloat(document.getElementById('menu-display-scale').value) || 1;
+  const menuBgOpacity = parseFloat(document.getElementById('menu-display-bg-opacity').value);
+
+  const rows = sceneTips.map(tip => {
+    const dur = tip.returnDelay > 0 ? tip.returnDelay + 's' : '∞';
+    return `<tr><td>${tip.tokens}</td><td>${tip.scene}</td><td>${dur}</td></tr>`;
+  }).join('');
+
+  const css = `
+      #menu-preview {
+        position: absolute;
+        ${getMenuPositionStyle()}
+        min-width: 130px;
+        max-width: 190px;
+        border-radius: ${theme.radius / 2}px;
+        border: ${theme.borderWidth / 2}px solid ${theme.accent};
+        overflow: hidden;
+        opacity: ${theme.opacity};
+        font-family: ${theme.bodyFont};
+        zoom: ${scale};
+      }
+      #menu-preview .menu-bg {
+        position: absolute; inset: 0;
+        background: ${gradient};
+        opacity: ${menuBgOpacity};
+        z-index: 0;
+        ${menuBgOpacity === 0 ? 'display:none;' : ''}
+      }
+      #menu-preview .menu-body { position: relative; z-index: 1; padding: 6px 8px; }
+      #menu-preview .menu-title {
+        font-family: ${theme.displayFont};
+        font-size: 9px; color: ${theme.accent};
+        text-transform: uppercase; letter-spacing: 0.08em;
+        margin-bottom: 4px;
+        border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 3px;
+      }
+      #menu-preview table { width: 100%; border-collapse: collapse; font-size: 6.5px; }
+      #menu-preview th {
+        color: ${theme.gold}; text-align: left; font-size: 5px;
+        text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 4px 3px; opacity: 0.8;
+      }
+      #menu-preview td {
+        padding: 2.5px 4px;
+        color: ${isDarkText ? '#000' : '#fff'};
+        border-top: 1px solid rgba(255,255,255,0.06);
+      }
+      #menu-preview td:first-child { color: ${theme.gold}; font-weight: 600; }`;
+
+  const html = `
+    <div id="menu-preview">
+      <div class="menu-bg"></div>
+      <div class="menu-body">
+        <div class="menu-title">Scene Switch Menu</div>
+        <table>
+          <thead><tr><th>Tokens</th><th>Scene</th><th>Duration</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  return { css, html };
+}
+
+function getCurrentTheme() {
+  const color1 = document.getElementById('bg-color1').value;
+  const color2 = document.getElementById('bg-color2').value;
+  const angle = parseInt(document.getElementById('gradient-angle').value);
+  
+  return {
+    accent: document.getElementById('accent').value,
+    gold: document.getElementById('gold').value,
+    teal: document.getElementById('teal').value,
+    background: `linear-gradient(${angle}deg, ${color1} 0%, ${color2} 100%)`,
+    bgColor1: color1,
+    bgColor2: color2,
+    bgAngle: angle,
+    bgOpacity: parseFloat(document.getElementById('bg-opacity').value),
+    radius: parseInt(document.getElementById('radius').value),
+    borderWidth: parseInt(document.getElementById('border-width').value),
+    boxWidth: parseInt(document.getElementById('box-width').value),
+    opacity: parseFloat(document.getElementById('opacity').value),
+    position: document.getElementById('position').value,
+    positionOffset: parseInt(document.getElementById('position-offset').value),
+    animationType: document.getElementById('animation-type').value,
+    slideDuration: parseInt(document.getElementById('slide-duration').value),
+    shimmer: document.getElementById('shimmer').value === 'true',
+    displayFont: document.getElementById('display-font').value,
+    bodyFont: document.getElementById('body-font').value,
+    fontSizeLabel: parseInt(document.getElementById('font-size-label').value),
+    fontSizeUsername: parseInt(document.getElementById('font-size-username').value),
+    fontSizeTokens: parseInt(document.getElementById('font-size-tokens').value),
+    fontSizeMessage: parseInt(document.getElementById('font-size-message').value),
+    topBarHeight: parseInt(document.getElementById('top-bar-height').value),
+    progressBarEnabled: document.getElementById('progress-bar-enabled').value === 'true',
+    progressBarHeight: parseInt(document.getElementById('progress-bar-height').value),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SCENE TIPS
+// ═══════════════════════════════════════════════════════════
+
+function buildSceneField(i, currentScene) {
+  if (obsScenes.length === 0) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Scene Name (match OBS exactly!)';
+    input.addEventListener('change', function() { updateSceneTip(i, 'scene', this.value); });
+    input.value = currentScene;
+    return input;
+  }
+  const select = document.createElement('select');
+  const allScenes = obsScenes.includes(currentScene) ? obsScenes : (currentScene ? [currentScene, ...obsScenes] : obsScenes);
+  allScenes.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+  select.value = currentScene;
+  select.addEventListener('change', function() { updateSceneTip(i, 'scene', this.value); });
+  return select;
+}
+
+function renderSceneTips() {
+  const container = document.getElementById('scene-tips-container');
+  container.innerHTML = '';
+
+  sceneTips.forEach((tip, i) => {
+    const div = document.createElement('div');
+    div.className = 'scene-item';
+    const showOverlay = tip.showOverlay !== false;
+
+    div.innerHTML = `
+      <div class="scene-grid">
+        <input type="number" placeholder="Tokens" onchange="updateSceneTip(${i}, 'tokens', this.value)">
+        <div class="scene-name-cell"></div>
+        <input type="number" placeholder="Return" min="0" title="Seconds before returning to main scene (0 = stay forever)" onchange="updateSceneTip(${i}, 'returnDelay', this.value)">
+        <label style="display: flex; align-items: center; justify-content: center; cursor: pointer; gap: 6px;">
+          <input type="checkbox" onchange="updateSceneTip(${i}, 'showOverlay', this.checked)" style="cursor: pointer; width: auto; margin: 0;">
+          <span style="font-size: 12px; color: var(--text-dim);">Show</span>
+        </label>
+        <button class="btn-danger btn-small" onclick="removeSceneTip(${i})">✕</button>
+      </div>
+    `;
+    const inputs = div.querySelectorAll('input[type="number"], input[type="checkbox"]');
+    inputs[0].value = tip.tokens;
+    inputs[1].value = tip.returnDelay;
+    inputs[2].checked = showOverlay;
+    div.querySelector('.scene-name-cell').appendChild(buildSceneField(i, tip.scene));
+    container.appendChild(div);
+  });
+}
+
+function addSceneTip() {
+  sceneTips.push({ tokens: 25, scene: 'New Scene', returnDelay: 30, showOverlay: true });
+  renderSceneTips();
+}
+
+function updateSceneTip(index, field, value) {
+  if (field === 'tokens' || field === 'returnDelay') {
+    sceneTips[index][field] = parseInt(value);
+  } else if (field === 'showOverlay') {
+    sceneTips[index][field] = value;
+  } else {
+    sceneTips[index][field] = value;
+  }
+}
+
+function removeSceneTip(index) {
+  sceneTips.splice(index, 1);
+  renderSceneTips();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════
+
+function getConfig() {
+  return {
+    ALERT_DURATION_SECONDS: parseInt(document.getElementById('alert-duration').value),
+    DEFAULT_SCENE: document.getElementById('default-scene').value,
+    SCENE_SWITCH_DELAY_SECONDS: parseInt(document.getElementById('scene-switch-delay').value),
+    SHOW_OTHER_TIPS_OVERLAY: document.getElementById('show-other-tips-overlay').value === 'true',
+    SCENE_TIPS: sceneTips,
+    MENU_DISPLAY_ENABLED: document.getElementById('menu-display-enabled').value === 'true',
+    MENU_DISPLAY_INTERVAL_SECONDS: parseInt(document.getElementById('menu-display-interval').value) || 30,
+    MENU_DISPLAY_DURATION_SECONDS: parseInt(document.getElementById('menu-display-duration').value) || 8,
+    MENU_DISPLAY_POSITION: document.getElementById('menu-display-position').value,
+    MENU_DISPLAY_SCALE: parseFloat(document.getElementById('menu-display-scale').value) || 1,
+    MENU_DISPLAY_ANIMATION: document.getElementById('menu-display-animation').value,
+    MENU_DISPLAY_BG_OPACITY: parseFloat(document.getElementById('menu-display-bg-opacity').value),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SERVER CONFIG
+// ═══════════════════════════════════════════════════════════
+
+function toggleConfigMethod() {
+  const method = document.querySelector('input[name="config-method"]:checked').value;
+  document.getElementById('url-config').style.display = method === 'url' ? 'block' : 'none';
+  document.getElementById('separate-config').style.display = method === 'separate' ? 'block' : 'none';
+}
+
+function saveServerConfig() {
+  const method = document.querySelector('input[name="config-method"]:checked').value;
+  let username, token;
+  
+  if (method === 'url') {
+    const url = document.getElementById('events-api-url').value.trim();
+    if (!url) {
+      showNotification('Please enter the Events API URL', true);
+      return;
+    }
+    const match = url.match(/\/events\/([^\/]+)\/([^\/]+)/);
+    if (!match) {
+      showNotification('Invalid URL format', true);
+      return;
+    }
+    username = match[1];
+    token = match[2];
+  } else {
+    username = document.getElementById('cb-username').value.trim();
+    token = document.getElementById('cb-token').value.trim();
+    if (!username || !token) {
+      showNotification('Please enter both username and token', true);
+      return;
+    }
+  }
+  
+  // Generate updated server file content
+  const serverContent = generateServerFile(username, token);
+  
+  // Download the file
+  const blob = new Blob([serverContent], { type: 'text/javascript' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'oss_server.js';
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  // Save credentials to localStorage
+  if (method === 'url') {
+    const urlValue = document.getElementById('events-api-url').value.trim();
+    saveCredentials('url', username, token, urlValue);
+  } else {
+    saveCredentials('separate', username, token);
+  }
+  
+  showNotification('Server file downloaded! Credentials saved.');
+}
+
+function generateServerFile(username, token) {
+  // Full server code with placeholders replaced
+  const serverCode = `// ============================================================
+// Chaturbate Events API → OBS Bridge Server
+// ============================================================
+// Generated by OBS Scene Switcher Editor v2.1
+// ============================================================
+
+const http = require('http');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
+
+const logFile = path.join(__dirname, 'oss_server_debug.log');
+function log(message) {
+  const timestamp = new Date().toISOString();
+  const logMessage = \`[\${timestamp}] \${message}\`;
+  console.log(message);
+  try { fs.appendFileSync(logFile, logMessage + '\\n'); } catch (err) {}
+}
+
+try {
+  fs.writeFileSync(logFile, '═══════════════════════════════════════════════════════\\n');
+  fs.appendFileSync(logFile, \`🚀 OBS Scene Switcher Server Starting\\nTime: \${new Date().toISOString()}\\n\`);
+  fs.appendFileSync(logFile, '═══════════════════════════════════════════════════════\\n\\n');
+} catch (err) {}
+
+// ⚙️ CONFIGURATION — Your credentials are below
+const CONFIG = {
+  CB_USERNAME: '${username}',
+  CB_TOKEN: '${token}',
+  PORT: 3000,
+};
+
+// ============================================================
+
+const EVENTS_BASE_URL = \`https://eventsapi.chaturbate.com/events/\${CONFIG.CB_USERNAME}/\${CONFIG.CB_TOKEN}/\`;
+let eventsUrl = EVENTS_BASE_URL;
+let latestEvents = [];
+let processedEventIds = new Set();
+let clients = [];
+let themeClients = [];
+let configClients = [];
+
+function cleanOldEventIds() {
+  if (processedEventIds.size > 1000) {
+    console.log('🧹 Clearing old event IDs (' + processedEventIds.size + ' tracked)');
+    processedEventIds.clear();
+  }
+}
+
+setInterval(cleanOldEventIds, 300000);
+
+console.log('🚀 Starting OBS Scene Switcher Server...');
+console.log('');
+
+if (CONFIG.CB_USERNAME === 'your_username_here' || CONFIG.CB_TOKEN === 'your_token_here') {
+  console.error('❌ ERROR: Please edit the CONFIG section!');
+  process.exit(1);
+}
+
+const server = http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  const parsedUrl = new URL(req.url, \`http://localhost:\${CONFIG.PORT}\`);
+  const pathname = parsedUrl.pathname;
+
+  if (pathname === '/events') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ events: latestEvents }));
+    latestEvents = [];
+    return;
+  }
+
+  if (pathname === '/stream') {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+    clients.push(res);
+    console.log('✅ OBS browser source connected (' + clients.length + ' active)');
+    req.on('close', () => {
+      clients = clients.filter(client => client !== res);
+      console.log('❌ Browser source disconnected (' + clients.length + ' active)');
+    });
+    return;
+  }
+
+  if (pathname === '/theme-stream') {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+    themeClients.push(res);
+    console.log('🎨 Theme editor connected');
+    req.on('close', () => { themeClients = themeClients.filter(client => client !== res); console.log('🎨 Theme editor disconnected'); });
+    return;
+  }
+
+  if (pathname === '/config-stream') {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+    configClients.push(res);
+    console.log('⚙️ Config editor connected');
+    req.on('close', () => { configClients = configClients.filter(client => client !== res); console.log('⚙️ Config editor disconnected'); });
+    return;
+  }
+
+  if (pathname === '/update-theme' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const theme = JSON.parse(body);
+        console.log('🎨 Broadcasting theme update to ' + clients.length + ' overlay(s)');
+        const message = JSON.stringify({ type: 'theme', data: theme });
+        clients.forEach(client => { client.write('data: ' + message + '\\n\\n'); });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    });
+    return;
+  }
+
+  if (pathname === '/update-config' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const config = JSON.parse(body);
+        console.log('⚙️ Broadcasting config update to ' + clients.length + ' overlay(s)');
+        const message = JSON.stringify({ type: 'config', data: config });
+        clients.forEach(client => { client.write('data: ' + message + '\\n\\n'); });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    });
+    return;
+  }
+
+  if (pathname === '/test') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      let testData = { username: 'TestUser123', tokens: 50, message: 'This is a test tip!' };
+      if (body) {
+        try {
+          const custom = JSON.parse(body);
+          if (custom.username) testData.username = custom.username;
+          if (custom.tokens) testData.tokens = custom.tokens;
+          if (custom.message !== undefined) testData.message = custom.message;
+        } catch (err) {}
+      }
+      console.log('🧪 TEST TIP triggered: ' + testData.username + ' - ' + testData.tokens + ' tokens');
+      const testEvent = { type: 'tip', username: testData.username, tokens: testData.tokens, message: testData.message, isAnon: false, timestamp: Date.now() };
+      const message = JSON.stringify({ events: [testEvent] });
+      clients.forEach(client => { client.write('data: ' + message + '\\n\\n'); });
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('Test tip sent!\\n');
+    });
+    return;
+  }
+
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Chaturbate → OBS Bridge Server is running!\\n\\nConnect your OBS browser source to:\\nhttp://localhost:' + CONFIG.PORT + '\\n');
+});
+
+server.listen(CONFIG.PORT, () => {
+  console.log('✅ Server running at http://localhost:' + CONFIG.PORT);
+  console.log('');
+  console.log('📡 Polling Chaturbate Events API...');
+  console.log('   Username: ' + CONFIG.CB_USERNAME);
+  console.log('   🛡️  Event deduplication: ACTIVE');
+  console.log('');
+  console.log('Now add this to OBS:');
+  console.log('   1. Browser Source → Local File → oss_overlay.html');
+  console.log('   2. Set width=1920, height=1080');
+  console.log('   3. Page Permissions = "Advanced access to OBS"');
+  console.log('');
+  console.log('To customize: Open oss_editor.html in your browser');
+  console.log('To test: http://localhost:' + CONFIG.PORT + '/test');
+  console.log('');
+  console.log('Press Ctrl+C to stop the server.');
+  console.log('');
+  startPolling();
+});
+
+let fetchActive = false;
+
+async function startPolling() {
+  if (fetchActive) return;
+  fetchActive = true;
+  try {
+    const data = await fetchEvents(eventsUrl + '?timeout=10');
+    if (data.next_url) eventsUrl = data.next_url;
+    if (data.events && data.events.length > 0) {
+      console.log('📬 Received ' + data.events.length + ' event(s)');
+      for (const event of data.events) {
+        processEvent(event);
+      }
+      if (clients.length > 0) {
+        const message = JSON.stringify({ events: latestEvents });
+        clients.forEach(client => { client.write('data: ' + message + '\\n\\n'); });
+      }
+    }
+  } catch (err) {
+    console.error('⚠️  Events API error:', err.message, '— retrying in 5s');
+    await sleep(5000);
+  } finally {
+    fetchActive = false;
+  }
+  setImmediate(startPolling);
+}
+
+function processEvent(event) {
+  const method = event.method;
+  const obj = event.object;
+  let eventId;
+  if (method === 'tip') {
+    const tip = obj.tip || obj;
+    const username = obj.user?.username || 'Anonymous';
+    const tokens = tip.tokens || 0;
+    const message = tip.message || '';
+    const isAnon = tip.isanon || false;
+    eventId = \`tip_\${username}_\${tokens}_\${message}_\${isAnon}\`;
+  } else {
+    const username = obj.user?.username || 'Unknown';
+    eventId = \`\${method}_\${username}_\${obj.message || ''}\`;
+  }
+  if (processedEventIds.has(eventId)) return;
+  processedEventIds.add(eventId);
+  console.log('📦 NEW Event - Type: ' + method);
+  if (method === 'tip') {
+    const tip = obj.tip || obj;
+    const username = obj.user ? obj.user.username : 'Anonymous';
+    let tokens = tip.tokens;
+    if (tokens === undefined || tokens === null) {
+      tokens = obj.tokens || tip.amount || obj.amount || 0;
+    }
+    console.log('Processing tip: User=' + username + ', Tokens=' + tokens + ', Has message=' + !!(tip.message || obj.message));
+    if (!tokens || tokens <= 0) {
+      console.log('⚠️  Ignored: No valid tip amount (amount: ' + tokens + ')');
+      console.log('⚠️  Full object: ' + JSON.stringify(obj));
+      return;
+    }
+    console.log('💰 VALID TIP: ' + username + ' tipped ' + tokens + ' tokens');
+    latestEvents.push({ type: 'tip', username: username, tokens: tokens, message: tip.message || obj.message || '', isAnon: tip.isanon || obj.isanon || false, timestamp: Date.now() });
+  } else {
+    const username = obj.user?.username || 'Unknown';
+    if (method === 'userEnter') {
+      console.log('\\x1b[32m📦 Event: userEnter "' + username + '"\\x1b[0m');
+      log('📦 Event: userEnter "' + username + '"');
+    } else if (method === 'userLeave') {
+      console.log('\\x1b[31m📦 Event: userLeave "' + username + '"\\x1b[0m');
+      log('📦 Event: userLeave "' + username + '"');
+    } else {
+      console.log('ℹ️  Ignored: ' + method + ' event (not a tip)');
+    }
+  }
+}
+
+function fetchEvents(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      if (res.statusCode !== 200) return reject(new Error('HTTP ' + res.statusCode));
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (err) {
+          reject(new Error('Invalid JSON response'));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+process.on('SIGINT', () => {
+  console.log('\\n\\n👋 Shutting down server...');
+  server.close();
+  process.exit(0);
+});
+`;
+
+  return serverCode;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UNIFIED SERVER (CHATURBATE + JOYSTICK.TV)
+// ═══════════════════════════════════════════════════════════
+
+let platformsEnabled = {
+  chaturbate: false,
+  joystick: false
+};
+
+let verboseLogging = false;
+
+function toggleSection(id) {
+  const content = document.getElementById(id + '-content');
+  const toggle = document.getElementById(id + '-toggle');
+  const isCollapsed = content.classList.toggle('collapsed');
+  toggle.style.transform = isCollapsed ? 'rotate(-90deg)' : '';
+  localStorage.setItem('section-' + id, isCollapsed ? 'collapsed' : 'expanded');
+}
+
+function initSectionStates() {
+  ['general-settings', 'scene-switch-menu'].forEach(id => {
+    const saved = localStorage.getItem('section-' + id);
+    if (saved === 'collapsed') {
+      document.getElementById(id + '-content').classList.add('collapsed');
+      document.getElementById(id + '-toggle').style.transform = 'rotate(-90deg)';
+    }
+  });
+}
+
+function toggleVerboseLogging() {
+  verboseLogging = !verboseLogging;
+  const dot = document.getElementById('verbose-dot');
+  const toggle = document.getElementById('verbose-toggle');
+  const label = document.getElementById('verbose-label');
+  dot.style.opacity = verboseLogging ? '1' : '0';
+  toggle.style.borderColor = verboseLogging ? 'var(--accent)' : 'var(--border)';
+  toggle.style.background = verboseLogging ? 'rgba(255, 78, 203, 0.05)' : 'transparent';
+  label.textContent = verboseLogging ? 'On' : 'Off';
+  localStorage.setItem('verboseLogging', verboseLogging);
+}
+
+function togglePlatform(platform) {
+  platformsEnabled[platform] = !platformsEnabled[platform];
+  
+  // Update UI
+  const toggle = document.getElementById(`${platform}-toggle`);
+  const dot = document.getElementById(`${platform}-dot`);
+  const configSection = document.getElementById(`${platform}-config-section`);
+  
+  if (platformsEnabled[platform]) {
+    toggle.style.borderColor = 'var(--accent)';
+    toggle.style.background = 'rgba(255, 78, 203, 0.05)';
+    dot.style.opacity = '1';
+    configSection.style.display = 'block';
+  } else {
+    toggle.style.borderColor = 'var(--border)';
+    toggle.style.background = 'transparent';
+    dot.style.opacity = '0';
+    configSection.style.display = 'none';
+  }
+  
+  // Save to localStorage
+  localStorage.setItem('platformsEnabled', JSON.stringify(platformsEnabled));
+  
+  updateSaveButton();
+}
+
+function updateSaveButton() {
+  const saveBtn = document.getElementById('save-server-btn');
+  const warning = document.getElementById('platform-warning');
+  
+  const anyEnabled = platformsEnabled.chaturbate || platformsEnabled.joystick;
+  
+  if (!anyEnabled) {
+    saveBtn.disabled = true;
+    warning.style.display = 'block';
+    warning.textContent = '⚠️ Please enable at least one platform';
+    return;
+  }
+  
+  // Check credentials for enabled platforms
+  let missingCredentials = false;
+  
+  if (platformsEnabled.chaturbate) {
+    const method = document.querySelector('input[name="config-method"]:checked').value;
+    if (method === 'url') {
+      const url = document.getElementById('events-api-url').value.trim();
+      if (!url) missingCredentials = true;
+    } else {
+      const username = document.getElementById('cb-username').value.trim();
+      const token = document.getElementById('cb-token').value.trim();
+      if (!username || !token) missingCredentials = true;
+    }
+  }
+  
+  if (platformsEnabled.joystick) {
+    const clientId = document.getElementById('joystick-client-id').value.trim();
+    const clientSecret = document.getElementById('joystick-client-secret').value.trim();
+    if (!clientId || !clientSecret) missingCredentials = true;
+  }
+  
+  if (missingCredentials) {
+    saveBtn.disabled = true;
+    warning.style.display = 'block';
+    warning.textContent = '⚠️ Please configure credentials for all enabled platforms';
+  } else {
+    saveBtn.disabled = false;
+    warning.style.display = 'none';
+  }
+}
+
+function saveUnifiedServerConfig() {
+  let cbUsername = '', cbToken = '';
+  let joystickClientId = '', joystickClientSecret = '';
+  
+  // Get Chaturbate credentials if enabled
+  if (platformsEnabled.chaturbate) {
+    const method = document.querySelector('input[name="config-method"]:checked').value;
+    if (method === 'url') {
+      const url = document.getElementById('events-api-url').value.trim();
+      const match = url.match(/\/events\/([^\/]+)\/([^\/]+)/);
+      if (!match) {
+        showNotification('Invalid Chaturbate URL format', true);
+        return;
+      }
+      cbUsername = match[1];
+      cbToken = match[2];
+    } else {
+      cbUsername = document.getElementById('cb-username').value.trim();
+      cbToken = document.getElementById('cb-token').value.trim();
+    }
+  }
+  
+  // Get Joystick credentials if enabled
+  if (platformsEnabled.joystick) {
+    joystickClientId = document.getElementById('joystick-client-id').value.trim();
+    joystickClientSecret = document.getElementById('joystick-client-secret').value.trim();
+  }
+  
+  // Generate unified server file
+  const serverContent = generateUnifiedServerFile(
+    platformsEnabled.chaturbate,
+    cbUsername,
+    cbToken,
+    platformsEnabled.joystick,
+    joystickClientId,
+    joystickClientSecret,
+    verboseLogging
+  );
+  
+  // Download the file
+  const blob = new Blob([serverContent], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'config.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  // Save credentials to localStorage
+  if (platformsEnabled.chaturbate) {
+    const method = document.querySelector('input[name="config-method"]:checked').value;
+    localStorage.setItem('cbMethod', method);
+    if (method === 'url') {
+      const urlValue = document.getElementById('events-api-url').value.trim();
+      localStorage.setItem('cbUrl', urlValue);
+    } else {
+      localStorage.setItem('cbUsername', cbUsername);
+      localStorage.setItem('cbToken', cbToken);
+    }
+  }
+  
+  if (platformsEnabled.joystick) {
+    localStorage.setItem('joystickClientId', joystickClientId);
+    localStorage.setItem('joystickClientSecret', joystickClientSecret);
+  }
+  
+  showNotification('✅ config.json downloaded! Place it in the same folder as oss_server.js' + 
+    (platformsEnabled.joystick ? ', then double click START_SERVER' : ''));
+}
+
+function generateUnifiedServerFile(enableCb, cbUsername, cbToken, enableJoystick, joystickClientId, joystickClientSecret, verboseLog) {
+  const cbUsernameVal = enableCb ? cbUsername : 'your_username_here';
+  const cbTokenVal = enableCb ? cbToken : 'your_token_here';
+  const joystickClientIdVal = enableJoystick ? joystickClientId : 'your_client_id_here';
+  const joystickClientSecretVal = enableJoystick ? joystickClientSecret : 'your_client_secret_here';
+
+  // Generate JSON configuration file
+  const config = {
+    platforms: {
+      chaturbate: {
+        enabled: enableCb,
+        username: cbUsernameVal,
+        token: cbTokenVal
+      },
+      joystick: {
+        enabled: enableJoystick,
+        clientId: joystickClientIdVal,
+        clientSecret: joystickClientSecretVal
+      }
+    },
+    server: {
+      port: 3000,
+      verbose_logging: verboseLog ?? false
+    }
+  };
+
+  return JSON.stringify(config, null, 2);
+}
+
+function setupPlatformListeners() {
+  // Listen to credential input changes to update save button state
+  const cbInputs = ['events-api-url', 'cb-username', 'cb-token'];
+  cbInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', updateSaveButton);
+      el.addEventListener('change', updateSaveButton);
+    }
+  });
+  
+  const joystickInputs = ['joystick-client-id', 'joystick-client-secret'];
+  joystickInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', updateSaveButton);
+      el.addEventListener('change', updateSaveButton);
+    }
+  });
+  
+  // Also listen to config method radio changes
+  const radios = document.querySelectorAll('input[name="config-method"]');
+  radios.forEach(radio => {
+    radio.addEventListener('change', updateSaveButton);
+  });
+}
+
+function loadPlatformSettings() {
+  // Load saved platform selections into a local var — do NOT overwrite platformsEnabled yet,
+  // since togglePlatform flips from false→true, so we need it to start at false.
+  const saved = localStorage.getItem('platformsEnabled');
+  const savedPlatforms = saved ? JSON.parse(saved) : { chaturbate: false, joystick: false };
+
+  // Load Chaturbate credentials
+  const cbUrl = localStorage.getItem('cbUrl');
+  const cbUsername = localStorage.getItem('cbUsername');
+  const cbToken = localStorage.getItem('cbToken');
+  const cbMethod = localStorage.getItem('cbMethod');
+
+  if (cbMethod) {
+    const radio = document.querySelector(`input[name="config-method"][value="${cbMethod}"]`);
+    if (radio) { radio.checked = true; toggleConfigMethod(); }
+  }
+  if (cbUrl) document.getElementById('events-api-url').value = cbUrl;
+  if (cbUsername) document.getElementById('cb-username').value = cbUsername;
+  if (cbToken) document.getElementById('cb-token').value = cbToken;
+
+  // Load Joystick credentials
+  const joystickClientId = localStorage.getItem('joystickClientId');
+  const joystickClientSecret = localStorage.getItem('joystickClientSecret');
+
+  if (joystickClientId) document.getElementById('joystick-client-id').value = joystickClientId;
+  if (joystickClientSecret) document.getElementById('joystick-client-secret').value = joystickClientSecret;
+
+  // Apply saved platform states — platformsEnabled starts all-false, so togglePlatform correctly enables them
+  if (savedPlatforms.chaturbate) togglePlatform('chaturbate');
+  if (savedPlatforms.joystick) togglePlatform('joystick');
+
+  // Restore verbose logging toggle — verboseLogging starts false, so calling toggle once enables it
+  if (localStorage.getItem('verboseLogging') === 'true') toggleVerboseLogging();
+
+  updateSaveButton();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  APPLY & TEST
+// ═══════════════════════════════════════════════════════════
+
+async function applyLive() {
+  const theme = getCurrentTheme();
+  const config = getConfig();
+  const applyButton = document.querySelector('.btn-primary[onclick="applyLive()"]');
+  
+  try {
+    const themeRes = await fetch('http://localhost:3000/update-theme', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(theme)
+    });
+    
+    const configRes = await fetch('http://localhost:3000/update-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    
+    if (themeRes.ok && configRes.ok) {
+      showNotification('✓ Applied to OBS!');
+      
+      // Save configuration to localStorage
+      localStorage.setItem('savedConfig', JSON.stringify(config));
+      localStorage.setItem('savedTheme', JSON.stringify(theme));
+      localStorage.setItem('savedSceneTips', JSON.stringify(sceneTips));
+      
+      // Remove shimmer effect
+      if (applyButton) {
+        applyButton.classList.remove('needs-apply');
+      }
+    } else {
+      throw new Error('Server returned error');
+    }
+  } catch (err) {
+    showNotification('Error: Make sure oss_server.js is running!', true);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TEST TIP EDITOR
+// ═══════════════════════════════════════════════════════════
+
+let testTipData = {
+  username: 'TestUser123',
+  tokens: 10,
+  message: 'This is a test tip!'
+};
+
+function openTestTipEditor() {
+  document.getElementById('test-tip-username').value = testTipData.username;
+  document.getElementById('test-tip-amount').value = testTipData.tokens;
+  document.getElementById('test-tip-message').value = testTipData.message;
+  document.getElementById('test-tip-modal').classList.add('show');
+  document.getElementById('test-tip-modal').onkeydown = (e) => { if (e.key === 'Enter') saveTestTipAndSend(); };
+  const amountInput = document.getElementById('test-tip-amount');
+  setTimeout(() => { amountInput.focus(); amountInput.select(); }, 50);
+}
+
+function closeTestTipEditor() {
+  document.getElementById('test-tip-modal').classList.remove('show');
+}
+
+// Close modals when clicking outside
+document.addEventListener('click', (e) => {
+  const testTipModal = document.getElementById('test-tip-modal');
+  const deleteModal = document.getElementById('delete-theme-modal');
+  
+  if (e.target === testTipModal) {
+    closeTestTipEditor();
+  }
+  
+  if (e.target === deleteModal) {
+    closeDeleteThemeModal();
+  }
+});
+
+function saveTestTipAndSend() {
+  testTipData.username = document.getElementById('test-tip-username').value || 'TestUser123';
+  testTipData.tokens = parseInt(document.getElementById('test-tip-amount').value) || 50;
+  testTipData.message = document.getElementById('test-tip-message').value || '';
+  closeTestTipEditor();
+  testAlert();
+}
+
+async function testAlert() {
+  try {
+    const res = await fetch('http://localhost:3000/test-tip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testTipData)
+    });
+    if (res.ok) {
+      showNotification('✓ Test tip sent to OBS!');
+    } else {
+      throw new Error('Server error');
+    }
+  } catch (err) {
+    showNotification('Error: Make sure oss_server.js is running!', true);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONNECTION STATUS BADGE
+// ═══════════════════════════════════════════════════════════
+
+function updateDefaultSceneInput() {
+  const container = document.getElementById('default-scene-container');
+  if (!container || obsScenes.length === 0) return;
+  const currentVal = (document.getElementById('default-scene') || {}).value || 'Main Scene';
+  const allScenes = obsScenes.includes(currentVal) ? obsScenes : (currentVal ? [currentVal, ...obsScenes] : obsScenes);
+  const select = document.createElement('select');
+  select.id = 'default-scene';
+  allScenes.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+  select.value = currentVal;
+  container.innerHTML = '';
+  container.appendChild(select);
+}
+
+async function importScenesFromOBS() {
+  let serverData;
+  try {
+    const statusRes = await fetch('http://localhost:3000/status', { signal: AbortSignal.timeout(2000) });
+    if (!statusRes.ok) throw new Error();
+    serverData = await statusRes.json();
+  } catch {
+    showNotification('Server offline — start oss_server.js first', true);
+    return;
+  }
+
+  if (serverData.overlayClients === 0) {
+    showNotification('Overlay not connected — open the browser source in OBS with Advanced Access enabled', true);
+    return;
+  }
+
+  try {
+    // Ask the overlay to send its scene list, then wait for it to respond
+    await fetch('http://localhost:3000/request-scenes', { method: 'POST', signal: AbortSignal.timeout(2000) });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const res = await fetch('http://localhost:3000/scenes', { signal: AbortSignal.timeout(2000) });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    if (Array.isArray(data.scenes) && data.scenes.length > 0) {
+      obsScenes = data.scenes;
+      renderSceneTips();
+      updateDefaultSceneInput();
+      showNotification('✓ Imported ' + data.scenes.length + ' scenes from OBS');
+    } else {
+      showNotification('No scenes received — make sure Advanced Access to OBS is enabled in the browser source properties', true);
+    }
+  } catch {
+    showNotification('Failed to fetch scenes from server', true);
+  }
+}
+
+async function checkConnectionStatus() {
+  const badge = document.getElementById('connection-badge');
+  const label = document.getElementById('connection-label');
+  const importBtn = document.getElementById('import-scenes-btn');
+  const applyBtn = document.querySelector('.btn-primary[onclick="applyLive()"]');
+  if (!badge || !label) return;
+
+  try {
+    const res = await fetch('http://localhost:3000/status', { signal: AbortSignal.timeout(2000) });
+    if (!res.ok) throw new Error('bad status');
+    const data = await res.json();
+
+    if (data.overlayClients > 0) {
+      badge.className = 'connection-badge ok';
+      label.textContent = 'All Connected';
+      importBtn?.classList.add('obs-connected');
+      applyBtn?.classList.remove('obs-disconnected');
+    } else {
+      badge.className = 'connection-badge warn';
+      label.textContent = 'Server Running — No Overlay';
+      badge.title = 'Overlay not connected. In OBS: right-click the browser source → Refresh cache of current page';
+      importBtn?.classList.remove('obs-connected');
+      applyBtn?.classList.add('obs-disconnected');
+    }
+  } catch {
+    badge.className = 'connection-badge err';
+    label.textContent = 'Server Offline';
+    importBtn?.classList.remove('obs-connected');
+    applyBtn?.classList.add('obs-disconnected');
+  }
+}
+
+checkConnectionStatus();
+setInterval(checkConnectionStatus, 5000);
+
+// ═══════════════════════════════════════════════════════════
+//  START
+// ═══════════════════════════════════════════════════════════
+
+function scalePreview() {
+  const outer = document.getElementById('preview-outer');
+  const container = document.getElementById('preview-container');
+  if (!outer || !container) return;
+  const scale = outer.offsetWidth / 960;
+  container.style.transform = `scale(${scale})`;
+  outer.style.height = Math.round(540 * scale) + 'px';
+}
+
+window.addEventListener('resize', scalePreview);
+
+// Resizer functionality
+const resizer = document.getElementById('theme-resizer');
+if (resizer) {
+  let isResizing = false;
+
+  resizer.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+
+    const newWidth = e.clientX;
+    if (newWidth >= 350 && newWidth <= 800) {
+      const content = document.getElementById('theme-content');
+      content.style.gridTemplateColumns = `${newWidth}px 1fr`;
+      resizer.style.left = `${newWidth}px`;
+      scalePreview();
+    }
+  });
+  
+  document.addEventListener('mouseup', () => {
+    isResizing = false;
+    document.body.style.cursor = 'default';
+    document.body.style.userSelect = 'auto';
+  });
+}
+
+init();
+</script>
+</body>
+</html>
