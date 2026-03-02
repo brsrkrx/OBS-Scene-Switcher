@@ -19,17 +19,13 @@ jobs:
         run: |
           VERSION=${GITHUB_REF_NAME}
           ZIP_NAME="OBS-Scene-Switcher-${VERSION}.zip"
-          zip "$ZIP_NAME" \
-            oss_server.js \
-            oss_editor.html \
-            oss_overlay.html \
-            START_SERVER_MAC.command \
-            START_SERVER_WINDOWS.bat \
-            config.example.json \
-            README.md \
-            CONFIG_GUIDE.md \
-            LICENSE \
-            CHANGELOG.md
+          FOLDER="OBS Scene Switcher"
+          mkdir -p "$FOLDER"
+          cp oss_server.js oss_editor.html oss_overlay.html \
+            START_SERVER_MAC.command START_SERVER_WINDOWS.bat \
+            config.example.json README.md CONFIG_GUIDE.md \
+            LICENSE CHANGELOG.md "$FOLDER/"
+          zip -r "$ZIP_NAME" "$FOLDER"
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
 
       - name: Create GitHub Release
