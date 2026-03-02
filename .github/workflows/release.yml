@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create release zip
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          ZIP_NAME="OBS-Scene-Switcher-${VERSION}.zip"
+          zip "$ZIP_NAME" \
+            oss_server.js \
+            oss_editor.html \
+            oss_overlay.html \
+            START_SERVER_MAC.command \
+            START_SERVER_WINDOWS.bat \
+            config.example.json \
+            README.md \
+            CONFIG_GUIDE.md \
+            LICENSE \
+            CHANGELOG.md
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_NAME }}
+          generate_release_notes: true
