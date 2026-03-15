@@ -10,6 +10,13 @@ Transform your cam shows with dynamic, tip-activated scene transitions! Set diff
 
 ---
 
+## 📸 Screenshots
+
+<a href="screenshots/editor-config.png"><img src="screenshots/editor-config.png" width="400" alt="Configuration editor"></a>
+<a href="screenshots/editor-theme.png"><img src="screenshots/editor-theme.png" width="400" alt="Theme editor"></a>
+
+---
+
 ## ✨ Features
 
 - 🎬 **Automatic Scene Switching** - Scenes change based on tip amounts
