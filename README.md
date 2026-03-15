@@ -56,7 +56,7 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
 
 ### **Prerequisites**
 
-- [Node.js](https://nodejs.org/) (v14 or higher)
+- [Node.js](https://nodejs.org/) (v14 or higher) - Click Get Node.js, then download the installer for your OS
 - [OBS Studio](https://obsproject.com/) (latest version)
 - Active streamer account on [Chaturbate](https://chaturbate.com/) and/or [Joystick.tv](https://joystick.tv/) and/or [Stripchat](https://stripchat.com/)
 
@@ -242,11 +242,10 @@ Contributions are welcome! Here's how:
 
 ### **Ideas for Contributions:**
 
-- 🌐 Additional platform support (Stripchat, MyFreeCams, etc.)
+- 🌐 Additional platform support (Twitch, MyFreeCams, etc.)
 - 🎨 New overlay themes
-- 📊 Analytics dashboard
 - 🔊 Sound effects for tips
-- 🎯 Advanced tip triggers
+- 🎯 Scene tip collections to switch between
 
 ---
 
