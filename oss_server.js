@@ -1,7 +1,7 @@
 // ============================================================
 // OBS Scene Switcher Server
 // ============================================================
-// Supports both Chaturbate and Joystick.tv platforms
+// Supports Chaturbate, Joystick.tv, and StripChat platforms
 // Enable/disable platforms in configuration
 // ============================================================
 
@@ -11,6 +11,9 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const readline = require('readline');
+
+const CURRENT_VERSION = '1.1.0';
+const GITHUB_REPO = 'brsrkrx/OBS-Scene-Switcher';
 
 // ── Logging Setup ───────────────────────────────────────────
 const logFile = path.join(__dirname, 'oss_server_debug.log');
@@ -22,8 +25,12 @@ function log(message) {
   try { fs.appendFileSync(logFile, logMessage + '\n'); } catch (err) {}
 }
 
-function vlog(message) {
-  if (CONFIG && CONFIG.VERBOSE_LOGGING) log(message);
+function elog(message) {          // level 2+: user enter/leave events
+  if (LOG_LEVEL >= 2) log(message);
+}
+
+function vlog(message) {          // level 3: full debug
+  if (LOG_LEVEL >= 3) log(message);
 }
 
 try {
@@ -36,6 +43,7 @@ try {
 
 // ⚙️ LOAD CONFIGURATION FROM config.json
 let CONFIG;
+let LOG_LEVEL = 1; // 1 = tips only, 2 = tips + events, 3 = full debug
 const configPath = path.join(__dirname, 'config.json');
 
 try {
@@ -66,8 +74,10 @@ try {
     CB_TOKEN: config.platforms.chaturbate.token,
     JOYSTICK_CLIENT_ID: config.platforms.joystick.clientId,
     JOYSTICK_CLIENT_SECRET: config.platforms.joystick.clientSecret,
+    ENABLE_STRIPCHAT: config.platforms.stripchat?.enabled ?? false,
+    SC_USERNAME: config.platforms.stripchat?.username || '',
     PORT: config.server.port || 3000,
-    VERBOSE_LOGGING: config.server.verbose_logging ?? false
+    LOG_LEVEL_DEFAULT: Math.min(3, Math.max(1, parseInt(config.server.log_level) || 1))
   };
   
   log('✅ Configuration loaded successfully');
@@ -94,10 +104,112 @@ try {
   process.exit(1);
 }
 
+// ── Check for Updates ───────────────────────────────────────
+function checkForUpdates() {
+  log('🔍 Checking for updates...');
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: `/repos/${GITHUB_REPO}/releases/latest`,
+      headers: { 'User-Agent': 'OBS-Scene-Switcher' }
+    };
+
+    https.get(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const release = JSON.parse(data);
+          const latest = (release.tag_name || '').replace(/^v/, '');
+          if (!latest) { resolve({ isNewer: false }); return; }
+
+          const toNum = v => v.split('.').map(Number);
+          const [lMaj, lMin, lPat] = toNum(latest);
+          const [cMaj, cMin, cPat] = toNum(CURRENT_VERSION);
+
+          const isNewer =
+            lMaj > cMaj ||
+            (lMaj === cMaj && lMin > cMin) ||
+            (lMaj === cMaj && lMin === cMin && lPat > cPat);
+
+          if (isNewer) {
+            log('');
+            log('╔══════════════════════════════════════════════════════╗');
+            log(`║  🆕 Update available: v${CURRENT_VERSION} → v${latest}`);
+            log('╚══════════════════════════════════════════════════════╝');
+            log('');
+            resolve({ isNewer: true, latest });
+          } else {
+            log(`✅ OBS Scene Switcher is up to date (v${CURRENT_VERSION})`);
+            resolve({ isNewer: false });
+          }
+        } catch (_) { resolve({ isNewer: false }); }
+      });
+    }).on('error', () => {
+      vlog('⚠️  Could not check for updates (no internet or GitHub unreachable)');
+      resolve({ isNewer: false });
+    });
+  });
+}
+
+// ── Download File (for auto-update) ─────────────────────────
+function downloadFile(url, destPath) {
+  return new Promise((resolve, reject) => {
+    const tmpPath = destPath + '.tmp';
+
+    function doGet(urlStr, hops) {
+      if (hops > 5) { reject(new Error('Too many redirects')); return; }
+      const mod = urlStr.startsWith('https') ? https : require('http');
+      mod.get(urlStr, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          doGet(res.headers.location, hops + 1); return;
+        }
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode} for ${urlStr}`)); return;
+        }
+        const out = fs.createWriteStream(tmpPath);
+        res.pipe(out);
+        out.on('finish', () => {
+          out.close(() => {
+            fs.renameSync(tmpPath, destPath);
+            if (destPath.endsWith('.command')) {
+              try { fs.chmodSync(destPath, 0o755); } catch (_) {}
+            }
+            resolve();
+          });
+        });
+        out.on('error', reject);
+      }).on('error', reject);
+    }
+
+    doGet(url, 0);
+  });
+}
+
+// ── Download and Apply Update ────────────────────────────────
+async function downloadAndUpdate(latestVersion) {
+  const files = [
+    'oss_server.js',
+    'oss_overlay.html',
+    'oss_editor.html',
+    'START_SERVER_WINDOWS.bat',
+    'START_SERVER_MAC.command',
+    'README.md',
+    'CHANGELOG.md'
+  ];
+
+  for (const file of files) {
+    const url = `https://raw.githubusercontent.com/${GITHUB_REPO}/v${latestVersion}/${file}`;
+    const dest = path.join(__dirname, file);
+    log(`   Downloading ${file}...`);
+    await downloadFile(url, dest);
+  }
+}
+
 // ── Check and Auto-Install WebSocket Library ───────────────
 async function checkAndInstallWebSocket() {
   if (!CONFIG.ENABLE_JOYSTICK) {
-    return; // Not needed if Joystick is disabled
+    return; // Only needed for Joystick WebSocket
   }
   
   // Check if ws module exists
@@ -252,7 +364,12 @@ const server = http.createServer((req, res) => {
   if (req.url === '/config-updates') {
     res.writeHead(200, { ...headers, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
     configClients.push(res);
-    if (lastConfig) res.write('data: ' + lastConfig + '\n\n');
+    if (lastConfig) {
+      const saved = JSON.parse(lastConfig);
+      // If menu was enabled, restore it after the interval delay (not immediately)
+      const replayConfig = { ...saved, menuAutoStart: saved.MENU_DISPLAY_ENABLED === true ? 'now' : false };
+      res.write('data: ' + JSON.stringify(replayConfig) + '\n\n');
+    }
     req.on('close', () => { configClients = configClients.filter(c => c !== res); });
     return;
   }
@@ -270,6 +387,24 @@ const server = http.createServer((req, res) => {
       } catch (_) {}
       themeClients.forEach(c => c.write('data: ' + body + '\n\n'));
       res.writeHead(200, headers); res.end('OK');
+    });
+    return;
+  }
+
+  // Preview theme endpoint — broadcasts to overlay but does NOT save
+  if (req.url === '/preview-theme' && req.method === 'POST') {
+    if (!isAllowedOrigin(req)) { res.writeHead(403, headers); res.end(JSON.stringify({ error: 'Forbidden' })); return; }
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const theme = JSON.parse(body);
+        const previewData = JSON.stringify({ ...theme, __preview: true });
+        themeClients.forEach(c => c.write('data: ' + previewData + '\n\n'));
+        res.writeHead(200, headers); res.end('OK');
+      } catch (err) {
+        res.writeHead(400, headers); res.end(JSON.stringify({ error: err.message }));
+      }
     });
     return;
   }
@@ -401,20 +536,103 @@ function sendEventsToClients() {
   }
 }
 
+// ── Log Level Menu ──────────────────────────────────────────
+async function showLogLevelMenu() {
+  const defaultLevel = LOG_LEVEL;
+  const levelNames = { 1: 'Tips only', 2: 'Tips + user events', 3: 'Full debug' };
+
+  return new Promise((resolve) => {
+    const TIMEOUT = 5;
+    let secondsLeft = TIMEOUT;
+    let answered = false;
+
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+    process.stdout.write(
+      '\n─────────────────────────────────────\n' +
+      ` Log Level — choose and press Enter\n` +
+      ` [1] Tips only${defaultLevel === 1 ? '  ← default' : ''}\n` +
+      ` [2] Tips + user events${defaultLevel === 2 ? '  ← default' : ''}\n` +
+      ` [3] Full debug / troubleshooting${defaultLevel === 3 ? '  ← default' : ''}\n` +
+      '─────────────────────────────────────\n'
+    );
+    process.stdout.write(`Starting with [${defaultLevel}] in ${secondsLeft} seconds...`);
+
+    const ticker = setInterval(() => {
+      secondsLeft--;
+      if (secondsLeft > 0) {
+        process.stdout.write(`\rStarting with [${defaultLevel}] in ${secondsLeft} seconds...`);
+      } else {
+        clearInterval(ticker);
+        if (!answered) {
+          answered = true;
+          process.stdout.write(`\rStarting with [${defaultLevel}] (from config)...          \n`);
+          rl.close();
+          resolve();
+        }
+      }
+    }, 1000);
+
+    rl.on('line', (input) => {
+      if (answered) return;
+      answered = true;
+      clearInterval(ticker);
+      const choice = input.trim();
+      if (choice === '1' || choice === '2' || choice === '3') {
+        LOG_LEVEL = parseInt(choice);
+      }
+      // If user pressed Enter or typed anything else, keep the default
+      process.stdout.write(`\rLog level: [${LOG_LEVEL}] ${levelNames[LOG_LEVEL]}.          \n`);
+      rl.close();
+      resolve();
+    });
+
+    rl.on('close', () => {
+      if (!answered) { answered = true; clearInterval(ticker); resolve(); }
+    });
+  });
+}
+
 // ── Start Server ───────────────────────────────────────────
 async function startServer() {
+  const updateInfo = await checkForUpdates();
+  if (updateInfo.isNewer) {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise(resolve => rl.question(`  Update to v${updateInfo.latest} now? (Y/n): `, resolve));
+    rl.close();
+    if (!answer.trim() || answer.trim().toLowerCase() === 'y') {
+      log('\n📥 Downloading update...');
+      try {
+        await downloadAndUpdate(updateInfo.latest);
+        log(`\n✅ Updated to v${updateInfo.latest}! Please restart the server.`);
+        process.exit(0);
+      } catch (err) {
+        log(`\n❌ Update failed: ${err.message}`);
+        log(`   Download manually: https://github.com/${GITHUB_REPO}/releases/latest`);
+        log('   Continuing with current version...\n');
+      }
+    } else {
+      log('   Skipping update. Continuing startup...\n');
+    }
+  }
+
   // Check and install WebSocket library if needed
   await checkAndInstallWebSocket();
-  
+
+  LOG_LEVEL = CONFIG.LOG_LEVEL_DEFAULT;
+  await showLogLevelMenu();
+  log('📋 Log level: ' + (LOG_LEVEL === 1 ? '1 (tips only)' : LOG_LEVEL === 2 ? '2 (tips + events)' : '3 (full debug)'));
+
   // Validate configuration
   log('🚀 Starting OBS Scene Switcher Server...');
   log('');
   log('Platform Status:');
   log('   Chaturbate: ' + (CONFIG.ENABLE_CHATURBATE ? '✅ ENABLED' : '⭕ DISABLED'));
   log('   Joystick.tv: ' + (CONFIG.ENABLE_JOYSTICK ? '✅ ENABLED' : '⭕ DISABLED'));
+  log('   StripChat: ' + (CONFIG.ENABLE_STRIPCHAT ? '✅ ENABLED' : '⭕ DISABLED'));
   log('');
 
-  if (!CONFIG.ENABLE_CHATURBATE && !CONFIG.ENABLE_JOYSTICK) {
+  if (!CONFIG.ENABLE_CHATURBATE && !CONFIG.ENABLE_JOYSTICK && !CONFIG.ENABLE_STRIPCHAT) {
     log('❌ ERROR: No platforms enabled! Enable at least one platform in config.json');
     log('');
     process.exit(1);
@@ -433,6 +651,15 @@ async function startServer() {
     if (CONFIG.JOYSTICK_CLIENT_ID === 'your_client_id_here' || CONFIG.JOYSTICK_CLIENT_SECRET === 'your_client_secret_here') {
       log('❌ ERROR: Joystick.tv is enabled but credentials not configured');
       log('   Please update config.json with your Joystick.tv credentials');
+      log('');
+      process.exit(1);
+    }
+  }
+
+  if (CONFIG.ENABLE_STRIPCHAT) {
+    if (!CONFIG.SC_USERNAME || CONFIG.SC_USERNAME === 'your_username_here') {
+      log('❌ ERROR: StripChat is enabled but username not configured');
+      log('   Please update config.json with your StripChat username');
       log('');
       process.exit(1);
     }
@@ -463,6 +690,10 @@ async function startServer() {
     
     if (CONFIG.ENABLE_JOYSTICK) {
       startJoystick();
+    }
+
+    if (CONFIG.ENABLE_STRIPCHAT) {
+      startStripchat();
     }
   });
 }
@@ -586,9 +817,9 @@ function processChaturbateEvent(event) {
     const username = obj.user?.username || 'Unknown';
     
     if (method === 'userEnter') {
-      console.log(`\x1b[32m📦 [CHATURBATE] Event: userEnter "${username}"\x1b[0m`);
+      elog(`\x1b[32m📦 [CHATURBATE] Event: userEnter "${username}"\x1b[0m`);
     } else if (method === 'userLeave') {
-      console.log(`\x1b[31m📦 [CHATURBATE] Event: userLeave "${username}"\x1b[0m`);
+      elog(`\x1b[31m📦 [CHATURBATE] Event: userLeave "${username}"\x1b[0m`);
     } else {
       vlog(`ℹ️  [CHATURBATE] NON-TIP EVENT IGNORED: ${method}`);
     }
@@ -702,7 +933,7 @@ function processJoystickEvent(event) {
   
   vlog('📦 [JOYSTICK] RAW EVENT: ' + JSON.stringify(event));
 
-  const eventId = `joystick_${event.id || Date.now()}_${Math.random()}`;
+  const eventId = `joystick_${event.id || Date.now()}`;
 
   if (processedEventIds.has(eventId)) {
     vlog('⏭️  [JOYSTICK] SKIPPED - Already processed event ID: ' + eventId);
@@ -728,9 +959,9 @@ function processJoystickEvent(event) {
     const username = event.text || 'Unknown';
     
     if (presenceType === 'enter_stream') {
-      console.log(`\x1b[32m📦 [JOYSTICK] Event: userEnter "${username}"\x1b[0m`);
+      elog(`\x1b[32m📦 [JOYSTICK] Event: userEnter "${username}"\x1b[0m`);
     } else if (presenceType === 'leave_stream') {
-      console.log(`\x1b[31m📦 [JOYSTICK] Event: userLeave "${username}"\x1b[0m`);
+      elog(`\x1b[31m📦 [JOYSTICK] Event: userLeave "${username}"\x1b[0m`);
     }
   }
   
@@ -776,6 +1007,184 @@ function handleJoystickTip(event) {
   }
 }
 
+// ══════════════════════════════════════════════════════════
+//  STRIPCHAT INTEGRATION
+// ══════════════════════════════════════════════════════════
+
+let stripchatPollTimeout = null;
+let stripchatModelId = null;
+let stripchatLastSeenId = null;
+
+function startStripchat() {
+  log('🔴 [STRIPCHAT] Starting tip polling for ' + CONFIG.SC_USERNAME + '...');
+  pollStripchat();
+}
+
+async function pollStripchat() {
+  if (!CONFIG.ENABLE_STRIPCHAT) return;
+
+  try {
+    // Resolve model ID on first run (or if lost)
+    if (!stripchatModelId) {
+      const camData = await fetchStripchatCamData();
+      const userObj = camData.user && camData.user.user ? camData.user.user : camData.user;
+      stripchatModelId = userObj && userObj.id ? String(userObj.id) : null;
+
+      if (!stripchatModelId) {
+        log('⚠️  [STRIPCHAT] Could not get model ID — stream may be offline. Retrying in 30s');
+        stripchatPollTimeout = setTimeout(pollStripchat, 30000);
+        return;
+      }
+
+      log('✅ [STRIPCHAT] Connected — polling tips for model ' + stripchatModelId);
+    }
+
+    // Fetch recent chat messages
+    const messages = await fetchStripchatChat();
+
+    // On the very first successful poll, mark all existing messages as seen
+    // so we only process tips that arrive after the server starts
+    if (stripchatLastSeenId === null) {
+      const maxId = messages.reduce((max, m) => (m.id > max ? m.id : max), 0);
+      stripchatLastSeenId = maxId;
+      log('✅ [STRIPCHAT] Watching for new tips (skipped ' + messages.length + ' existing messages)');
+      stripchatPollTimeout = setTimeout(pollStripchat, 2000);
+      return;
+    }
+
+    // Only process messages newer than what we've already seen
+    let newMaxId = stripchatLastSeenId;
+    for (const msg of messages) {
+      if (msg.id > stripchatLastSeenId) {
+        if (msg.type === 'tip' || msg.type === 'privateTip') {
+          processStripchatTip(msg);
+        } else {
+          vlog('[STRIPCHAT] Ignored message type: ' + msg.type);
+        }
+        if (msg.id > newMaxId) newMaxId = msg.id;
+      }
+    }
+    stripchatLastSeenId = newMaxId;
+
+  } catch (err) {
+    vlog('⚠️  [STRIPCHAT] Poll error: ' + err.message);
+    // If we lost the model ID (e.g., stream went offline), reset so we re-resolve next poll
+    if (err.message.startsWith('HTTP')) stripchatModelId = null;
+  }
+
+  // Schedule next poll
+  if (CONFIG.ENABLE_STRIPCHAT) {
+    stripchatPollTimeout = setTimeout(pollStripchat, 2000);
+  }
+}
+
+function processStripchatTip(msg) {
+  const username = (msg.userData && msg.userData.username) || '';
+  const tokens = parseInt((msg.details && msg.details.amount) || 0) || 0;
+  const tipNote = (msg.details && msg.details.body) || '';
+  const isAnon = (msg.details && msg.details.isAnonymous) || !username;
+
+  const displayName = isAnon ? 'Anonymous' : username;
+  // Use message ID for dedup when available; fall back to content hash
+  const eventId = msg.id ? `sc_msg_${msg.id}` : `sc_tip_${displayName}_${tokens}_${msg.createdAt || ''}`;
+
+  if (processedEventIds.has(eventId)) {
+    vlog('⏭️  [STRIPCHAT] Skipped duplicate: ' + eventId);
+    return;
+  }
+
+  processedEventIds.add(eventId);
+  vlog('✅ [STRIPCHAT] NEW EVENT ACCEPTED - ID: ' + eventId);
+
+  if (!tokens || tokens <= 0) {
+    log('⚠️  [STRIPCHAT] INVALID TIP - Amount is ' + tokens + ' (must be > 0)');
+    return;
+  }
+
+  log('💰 [STRIPCHAT] VALID TIP: ' + displayName + ' tipped ' + tokens + ' tokens');
+
+  const safe = sanitizeTipData(displayName, tokens, tipNote);
+  latestEvents.push({
+    type: 'tip',
+    username: safe.username,
+    tokens: safe.tokens,
+    message: safe.message,
+    timestamp: Date.now()
+  });
+
+  sendEventsToClients();
+  vlog('✓ [STRIPCHAT] Tip added to queue. Queue size: ' + latestEvents.length);
+}
+
+function fetchStripchatChat() {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'stripchat.com',
+      path: '/api/front/v2/models/username/' + CONFIG.SC_USERNAME + '/chat',
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://stripchat.com/' + CONFIG.SC_USERNAME,
+        'Cookie': 'age_verified=1; platform=desktop',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    };
+
+    https.get(options, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error('HTTP ' + res.statusCode));
+        return;
+      }
+
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          resolve(parsed.messages || []);
+        } catch (e) {
+          reject(new Error('Invalid JSON from chat API'));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+function fetchStripchatCamData() {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'stripchat.com',
+      path: '/api/front/v2/models/username/' + CONFIG.SC_USERNAME + '/cam',
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://stripchat.com/' + CONFIG.SC_USERNAME,
+        'Cookie': 'age_verified=1; platform=desktop',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    };
+
+    https.get(options, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error('HTTP ' + res.statusCode));
+        return;
+      }
+
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error('Invalid JSON from cam API')); }
+      });
+    }).on('error', reject);
+  });
+}
+
+
 // ── Helper Functions ────────────────────────────────────────
 
 function fetchEvents(url) {
@@ -810,9 +1219,13 @@ process.on('SIGINT', () => {
   if (joystickWs) {
     joystickWs.close();
   }
-  
+
   if (joystickReconnectTimeout) {
     clearTimeout(joystickReconnectTimeout);
+  }
+
+  if (stripchatPollTimeout) {
+    clearTimeout(stripchatPollTimeout);
   }
   
   server.close();

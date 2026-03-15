@@ -1,0 +1,24 @@
+# Claude Checkpoints Configuration
+# This file configures Claude Code integration with Claude Checkpoints
+
+# Auto-generate commit messages based on changes
+AUTO_COMMIT_MESSAGE=true
+
+# Create checkpoint after each todo completion
+AUTO_CHECKPOINT=true
+
+# Track all file changes
+TRACK_CHANGES=true
+
+# MCP Server settings
+MCP_SERVER=localhost:8765
+MCP_ENABLED=true
+
+# Git integration
+GIT_AUTO_STAGE=true
+GIT_AUTO_COMMIT=false
+GIT_COMMIT_PREFIX="[Claude Checkpoints]"
+
+# Hooks
+HOOK_POST_TASK="claude-checkpoints checkpoint --auto"
+HOOK_PRE_COMMIT="claude-checkpoints summary"

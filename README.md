@@ -14,13 +14,15 @@ Transform your cam shows with dynamic, tip-activated scene transitions! Set diff
 
 - 🎬 **Automatic Scene Switching** - Scenes change based on tip amounts
 - 🎨 **Beautiful Overlays** - Customizable tip notifications with animations
-- 🎯 **Dual Platform Support** - Works with Chaturbate AND Joystick.tv simultaneously
-- ⚡ **Real-time Response** - Sub-second latency for instant scene changes
+- ⏳ **Scene Switch Progress Bar** - A shrinking countdown bar appears at the bottom of the tip popup during the scene switch delay
+- 🎯 **Multiple Platform Support** - Works with Chaturbate, Joystick.tv and Stripchat simultaneously
+- ⚡ **Real-time Response** - Sub-second latency for instant scene changes (except for Stripchat due to missing API)
 - 🎨 **Theme Editor** - Visual customization - no coding required
 - 🔄 **Auto-Install** - WebSocket library installs automatically
 - 📱 **Easy Setup** - Visual configuration editor
 - 🛡️ **Deduplication** - Prevents duplicate scene switches
-- 🌐 **Cross-Platform** - Works on Windows, macOS, and Linux
+- 🔄 **Auto-Update** - Detects new versions at startup and offers to download and apply the update automatically
+- 🌐 **Cross-Platform** - Works on Windows, macOS, and Linux (Linux not tested)
 
 ---
 
@@ -49,7 +51,7 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
 
 - [Node.js](https://nodejs.org/) (v14 or higher)
 - [OBS Studio](https://obsproject.com/) (latest version)
-- Active streamer account on [Chaturbate](https://chaturbate.com/) and/or [Joystick.tv](https://joystick.tv/)
+- Active streamer account on [Chaturbate](https://chaturbate.com/) and/or [Joystick.tv](https://joystick.tv/) and/or Stripchat (https://stripchat.com/)
 
 ### **Installation**
 
@@ -60,8 +62,8 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
 1. **Configure your platforms:**
    - Open `oss_editor.html` in your browser
    - Go to "Server Setup" tab
-   - Select platform(s) (Chaturbate and/or Joystick.tv)
-   - Follow the guide
+   - Select platform(s) (Chaturbate and/or Joystick.tv and/or Stripchat)
+   - Follow the guide(s)
    - Click "Download config.json"
    - Place `config.json` you just downloaded in the project folder. NEVER SHARE your config.json file. If others get that info, you need to delete the API URL for Chaturbate and delete the bot in Joystick.tv and make new ones.  
 
@@ -76,11 +78,13 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
    
    **Mac/Linux:**
    ```bash
-   # Double-click START_SERVER_MAC.command
+   # Double-click START_SERVER_MAC.command (Mac only)
    # OR run this in Terminal:
    node oss_server.js
    ```
    
+   **If a newer version is available:** The server will offer to download and apply the update automatically. Press `Y` to update (the server exits so you can restart fresh) or `n` to skip and continue.
+
    **If using Joystick.tv:** The server will auto-detect if WebSocket library is missing and offer to install it. Just press Y!
 
 3. **Add to OBS:**
@@ -88,7 +92,7 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
    - Select `oss_overlay.html` as local file
    - Or drag it to the sources list
    - Set dimensions: 1920x1080
-   - Set Page permissions to "Advanced access to OBS..."
+   - Set Page permissions to "Advanced access to OBS..." <- Very important!
 
 4. **Configure scenes:**
    - Open `oss_editor.html`

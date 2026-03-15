@@ -51,7 +51,7 @@
     width: var(--box-width);
     border: var(--border-width) solid var(--accent);
     border-radius: var(--radius);
-    box-shadow: 0 0 30px rgba(255, 78, 203, 0.4), 0 0 80px rgba(255, 78, 203, 0.15), inset 0 1px 0 rgba(255,255,255,0.07);
+    box-shadow: 0 0 30px color-mix(in srgb, var(--accent) 40%, transparent);
     pointer-events: none;
     font-family: var(--body-font);
     opacity: var(--opacity);
@@ -110,9 +110,9 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
-    z-index: 1;
+    z-index: 10;
   }
-  
+
   #alert-box.shimmer::after {
     background-size: 200% 100%;
     animation: shimmer 3s linear infinite;
@@ -124,11 +124,11 @@
   }
 
   .alert-body { padding: 20px 24px 22px; position: relative; z-index: 1; }
-  .alert-label { font-family: var(--display-font); font-size: var(--font-size-label); letter-spacing: 3px; color: var(--accent); text-transform: uppercase; margin-bottom: 6px; opacity: 0.85; }
-  .alert-username { font-family: var(--display-font); font-size: var(--font-size-username); letter-spacing: 1px; color: var(--username-color); line-height: 1; text-shadow: 0 0 20px rgba(255,78,203,0.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .alert-tokens { font-family: var(--display-font); font-size: var(--font-size-tokens); color: var(--gold); margin-top: 2px; text-shadow: 0 0 15px rgba(255,209,102,0.5); }
-  .alert-message { font-size: var(--font-size-message); color: var(--message-color); margin-top: 10px; line-height: 1.4; font-style: italic; border-left: 2px solid var(--accent); padding-left: 10px; max-height: 80px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
-  .alert-scene-badge { display: inline-block; margin-top: 12px; background: rgba(6, 214, 160, 0.15); border: 1px solid var(--teal); color: var(--teal); font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; }
+  .alert-label { font-family: var(--display-font); font-size: var(--font-size-label); letter-spacing: 3px; color: var(--accent); text-transform: uppercase; margin-bottom: 4px; opacity: 0.85; }
+  .alert-username { font-family: var(--display-font); font-size: var(--font-size-username); letter-spacing: 1px; color: var(--username-color); line-height: 1; text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 60%, transparent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .alert-tokens { font-family: var(--display-font); font-size: var(--font-size-tokens); color: var(--gold); margin-top: 2px; text-shadow: 0 0 16px color-mix(in srgb, var(--gold) 50%, transparent); }
+  .alert-message { font-size: var(--font-size-message); color: var(--message-color); margin-top: 10px; line-height: 1.3; font-style: italic; border-left: 2px solid var(--accent); padding-left: 10px; max-height: 120px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; }
+  .alert-scene-badge { display: inline-block; margin-top: 8px; background: color-mix(in srgb, var(--teal) 13%, transparent); border: 2px solid var(--teal); color: var(--teal); font-size: var(--font-size-label); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; }
 
   .progress-container { margin-top: 12px; background: rgba(0,0,0,0.3); height: 4px; border-radius: 2px; overflow: hidden; position: relative; }
   .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.1s linear; box-shadow: 0 0 10px var(--accent); }
@@ -138,17 +138,51 @@
   #scene-flash.flash { animation: do-flash 0.5s ease forwards; }
   @keyframes do-flash { 0% { opacity: 0.35; } 100% { opacity: 0; } }
 
+  /* ── News Ticker ─────────────────────────────────────── */
+  #news-ticker {
+    position: fixed; left: 0; right: 0; z-index: 850;
+    height: 28px; overflow: hidden;
+    display: flex; align-items: center;
+  }
+  #news-ticker.ticker-top    { top: 0;    border-bottom: var(--border-width) solid var(--accent); }
+  #news-ticker.ticker-bottom { bottom: 0; border-top: var(--border-width) solid var(--accent); }
+  #news-ticker.hidden        { display: none; }
+
+  .ticker-bg {
+    position: absolute; inset: 0;
+    background: var(--bg-gradient);
+    opacity: var(--bg-opacity);
+  }
+  .ticker-track {
+    position: relative; z-index: 1;
+    width: 100%; overflow: hidden;
+    display: flex; align-items: center;
+  }
+  .ticker-inner {
+    display: inline-block; white-space: nowrap;
+    font-family: var(--body-font); font-size: 14px;
+    color: var(--username-color, #fff); padding: 0 10px;
+    animation: ticker-scroll 30s linear infinite;
+  }
+  .ticker-tokens { color: var(--gold); font-weight: 600; }
+  .ticker-sep    { color: var(--accent); margin: 0 6px; }
+
+  @keyframes ticker-scroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-25%); }
+  }
+
   #status { position: fixed; top: 20px; left: 20px; background: rgba(0,0,0,0.75); color: #fff; font-size: 12px; padding: 6px 12px; border-radius: 6px; border-left: 3px solid #ff4444; display: none; max-width: 500px; line-height: 1.6; }
 
   /* Scene Return Progress Bar (bottom of screen) */
   #scene-return-bar {
     position: fixed;
-    bottom: 0;
+    bottom: var(--progress-bar-bottom, 0px);
     left: 0;
     right: 0;
     height: var(--progress-bar-height, 8px);
     background: rgba(0, 0, 0, 0.5);
-    z-index: 99999;
+    z-index: 9999;
     display: none;
   }
 
@@ -157,10 +191,36 @@
     width: 100%;
     background: linear-gradient(90deg, var(--accent), var(--gold), var(--teal), var(--accent));
     transition: width 0.1s linear;
-    box-shadow: 0 0 30px var(--accent), 0 -2px 10px var(--accent);
+    box-shadow: 0 0 15px var(--accent), 0 -1px 5px var(--accent);
   }
   
   #scene-return-bar.shimmer #scene-return-bar-fill {
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+
+  /* Scene Switch Delay Progress Bar (bottom of popup) */
+  #scene-switch-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--progress-bar-height, 8px);
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    overflow: hidden;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  #scene-switch-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--gold), var(--teal), var(--accent));
+    transition: width 0.1s linear;
+    box-shadow: 0 0 15px var(--accent), 0 -1px 5px var(--accent);
+  }
+
+  #scene-switch-bar.shimmer #scene-switch-bar-fill {
     background-size: 200% 100%;
     animation: shimmer 3s linear infinite;
   }
@@ -177,6 +237,8 @@
     font-family: var(--body-font);
     opacity: var(--opacity);
   }
+  /* Base hidden state — keeps menu invisible before data-anim is set by JS */
+  #menu-display.hidden { opacity: 0; pointer-events: none; }
   /* animation: none */
   #menu-display[data-anim="none"] { transition: none; }
   #menu-display[data-anim="none"].hidden { opacity: 0; pointer-events: none; }
@@ -211,7 +273,7 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin-bottom: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 2px solid rgba(255,255,255,0.1);
     padding-bottom: 6px;
   }
   .menu-table {
@@ -231,11 +293,15 @@
   .menu-table td {
     padding: 5px 8px;
     color: var(--username-color, #fff);
-    border-top: 1px solid rgba(255,255,255,0.06);
+    border-top: 2px solid rgba(255,255,255,0.06);
   }
   .menu-table td:first-child {
     color: var(--gold);
     font-weight: 600;
+  }
+  .menu-table th:last-child,
+  .menu-table td:last-child {
+    text-align: right;
   }
   .menu-table tr:hover td {
     background: rgba(255,255,255,0.04);
@@ -259,6 +325,10 @@ const DEFAULT_CONFIG = {
   MENU_DISPLAY_SCALE: 1,
   MENU_DISPLAY_ANIMATION: 'fade',
   MENU_DISPLAY_BG_OPACITY: 1,
+  TICKER_POSITION: 'disabled',
+  TICKER_SPEED: 30,
+  TICKER_SCALE: 1,
+  TICKER_SEPARATOR: '⎹',
 };
 
 let CONFIG = { ...DEFAULT_CONFIG };
@@ -289,12 +359,22 @@ setInterval(cleanOldTipIds, 600000);
     <div class="alert-message" id="alert-msg" style="display:none"></div>
     <div class="alert-scene-badge" id="alert-scene" style="display:none"></div>
   </div>
+  <div id="scene-switch-bar" style="display:none">
+    <div id="scene-switch-bar-fill"></div>
+  </div>
 </div>
 
 <div id="status"></div>
 
 <div id="scene-return-bar">
   <div id="scene-return-bar-fill"></div>
+</div>
+
+<div id="news-ticker" class="hidden">
+  <div class="ticker-bg"></div>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="ticker-inner"></div>
+  </div>
 </div>
 
 <div id="menu-display" class="hidden">
@@ -321,6 +401,7 @@ const alertBox = document.getElementById('alert-box');
 
 let alertTimer = null, sceneReturnTimer = null, totalTips = 0;
 let returnProgressInterval = null;
+let switchProgressInterval = null;
 
 if (!obsAvailable) {
   statusEl.style.display = 'block';
@@ -426,7 +507,17 @@ function applyTheme(theme) {
   } else {
     alertBox.classList.add('shimmer');
   }
-  
+  const returnBarContainer = document.getElementById('scene-return-bar');
+  if (returnBarContainer) {
+    if (theme.shimmer) { returnBarContainer.classList.add('shimmer'); }
+    else { returnBarContainer.classList.remove('shimmer'); }
+  }
+  const switchBarContainer = document.getElementById('scene-switch-bar');
+  if (switchBarContainer) {
+    if (theme.shimmer) { switchBarContainer.classList.add('shimmer'); }
+    else { switchBarContainer.classList.remove('shimmer'); }
+  }
+
   log('🎨 Theme applied');
 }
 
@@ -449,53 +540,66 @@ function isLightBackground(color1, color2) {
   return avgBrightness > 180; // Light background if brightness > 180
 }
 
+function getTickerEdgeOffset(side) {
+  if (CONFIG.TICKER_POSITION !== side) return 0;
+  const tickerH = 28 * (CONFIG.TICKER_SCALE || 1);
+  if (side === 'bottom') {
+    const barH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--progress-bar-height')) || 8;
+    return tickerH + barH;
+  }
+  return tickerH;
+}
+
 function applyPosition(position, offset) {
   const root = document.documentElement;
   root.style.setProperty('--position-top', 'auto');
   root.style.setProperty('--position-bottom', 'auto');
   root.style.setProperty('--position-left', 'auto');
   root.style.setProperty('--position-right', 'auto');
-  
+
   // Remove all position classes
   alertBox.classList.remove('pos-right', 'pos-left', 'pos-top', 'pos-bottom', 'pos-center');
-  
+
+  const topOff = offset + getTickerEdgeOffset('top');
+  const botOff = offset + getTickerEdgeOffset('bottom');
+
   const positions = {
-    'bottom-right': () => { 
-      root.style.setProperty('--position-bottom', offset + 'px'); 
-      root.style.setProperty('--position-right', offset + 'px'); 
+    'bottom-right': () => {
+      root.style.setProperty('--position-bottom', botOff + 'px');
+      root.style.setProperty('--position-right', offset + 'px');
       alertBox.classList.add('pos-right');
     },
-    'bottom-left': () => { 
-      root.style.setProperty('--position-bottom', offset + 'px'); 
-      root.style.setProperty('--position-left', offset + 'px'); 
+    'bottom-left': () => {
+      root.style.setProperty('--position-bottom', botOff + 'px');
+      root.style.setProperty('--position-left', offset + 'px');
       alertBox.classList.add('pos-left');
     },
-    'top-right': () => { 
-      root.style.setProperty('--position-top', offset + 'px'); 
-      root.style.setProperty('--position-right', offset + 'px'); 
+    'top-right': () => {
+      root.style.setProperty('--position-top', topOff + 'px');
+      root.style.setProperty('--position-right', offset + 'px');
       alertBox.classList.add('pos-right');
     },
-    'top-left': () => { 
-      root.style.setProperty('--position-top', offset + 'px'); 
-      root.style.setProperty('--position-left', offset + 'px'); 
+    'top-left': () => {
+      root.style.setProperty('--position-top', topOff + 'px');
+      root.style.setProperty('--position-left', offset + 'px');
       alertBox.classList.add('pos-left');
     },
-    'center': () => { 
-      root.style.setProperty('--position-top', '50%'); 
-      root.style.setProperty('--position-left', '50%'); 
-      alertBox.style.transform = 'translate(-50%, -50%)'; 
+    'center': () => {
+      root.style.setProperty('--position-top', '50%');
+      root.style.setProperty('--position-left', '50%');
+      alertBox.style.transform = 'translate(-50%, -50%)';
       alertBox.classList.add('pos-center');
     },
-    'bottom-center': () => { 
-      root.style.setProperty('--position-bottom', offset + 'px'); 
-      root.style.setProperty('--position-left', '50%'); 
-      alertBox.style.transform = 'translateX(-50%)'; 
+    'bottom-center': () => {
+      root.style.setProperty('--position-bottom', botOff + 'px');
+      root.style.setProperty('--position-left', '50%');
+      alertBox.style.transform = 'translateX(-50%)';
       alertBox.classList.add('pos-bottom');
     },
-    'top-center': () => { 
-      root.style.setProperty('--position-top', offset + 'px'); 
-      root.style.setProperty('--position-left', '50%'); 
-      alertBox.style.transform = 'translateX(-50%)'; 
+    'top-center': () => {
+      root.style.setProperty('--position-top', topOff + 'px');
+      root.style.setProperty('--position-left', '50%');
+      alertBox.style.transform = 'translateX(-50%)';
       alertBox.classList.add('pos-top');
     }
   };
@@ -525,7 +629,7 @@ function getSceneForTip(tokens) {
   log('🔍 OVERLAY: Finding scene for ' + tokens + ' tokens');
   log('🔍 OVERLAY: Configured scenes: ' + JSON.stringify(CONFIG.SCENE_TIPS));
   
-  const exact = CONFIG.SCENE_TIPS.find(entry => entry.tokens === tokens);
+  const exact = CONFIG.SCENE_TIPS.find(entry => entry.tokens === tokens && !entry.disabled);
   if (exact) {
     log('✓ OVERLAY: EXACT match found - Scene: "' + exact.scene + '" for ' + tokens + ' tokens');
     return exact;
@@ -537,27 +641,60 @@ function getSceneForTip(tokens) {
 
 function applyMenuPosition(position) {
   const el = document.getElementById('menu-display');
-  const offset = '20px';
+  const zoom = CONFIG.MENU_DISPLAY_SCALE || 1;
+  const base = 20;
+  const topOffset = ((base + getTickerEdgeOffset('top')) / zoom) + 'px';
+  const botOffset = ((base + getTickerEdgeOffset('bottom')) / zoom) + 'px';
+  const horizOffset = (base / zoom) + 'px';
   el.style.top = el.style.bottom = el.style.left = el.style.right = 'auto';
   el.style.transform = '';
   const map = {
-    'top-right':     () => { el.style.top = offset; el.style.right = offset; },
-    'top-left':      () => { el.style.top = offset; el.style.left = offset; },
-    'top-center':    () => { el.style.top = offset; el.style.left = '50%'; el.style.transform = 'translateX(-50%)'; },
-    'bottom-right':  () => { el.style.bottom = offset; el.style.right = offset; },
-    'bottom-left':   () => { el.style.bottom = offset; el.style.left = offset; },
-    'bottom-center': () => { el.style.bottom = offset; el.style.left = '50%'; el.style.transform = 'translateX(-50%)'; },
+    'top-right':     () => { el.style.top = topOffset; el.style.right = horizOffset; },
+    'top-left':      () => { el.style.top = topOffset; el.style.left = horizOffset; },
+    'top-center':    () => { el.style.top = topOffset; el.style.left = '50%'; el.style.transform = 'translateX(-50%)'; },
+    'bottom-right':  () => { el.style.bottom = botOffset; el.style.right = horizOffset; },
+    'bottom-left':   () => { el.style.bottom = botOffset; el.style.left = horizOffset; },
+    'bottom-center': () => { el.style.bottom = botOffset; el.style.left = '50%'; el.style.transform = 'translateX(-50%)'; },
     'center':        () => { el.style.top = '50%'; el.style.left = '50%'; el.style.transform = 'translate(-50%, -50%)'; },
   };
   (map[position] || map['top-right'])();
 }
 
+function updateTicker() {
+  const el = document.getElementById('news-ticker');
+  const inner = document.getElementById('ticker-inner');
+  const activeTips = CONFIG.SCENE_TIPS.filter(t => !t.disabled);
+
+  if (CONFIG.TICKER_POSITION === 'disabled' || activeTips.length === 0) {
+    el.className = 'hidden'; return;
+  }
+
+  const sep = `<span class="ticker-sep" style="margin:0 20px">${CONFIG.TICKER_SEPARATOR || '⎹'}</span>`;
+  const items = activeTips.map(tip => {
+    const dur = tip.returnDelay > 0 ? tip.returnDelay + 's' : '∞';
+    return `<span class="ticker-tokens">${tip.tokens} tokens</span>`
+         + `<span class="ticker-sep">→</span>${tip.scene}`
+         + `<span class="ticker-sep">(${dur})</span>`;
+  }).join(sep);
+
+  const content = `<span>${sep}${items}</span>`;
+  inner.innerHTML = content.repeat(4); // 4 copies for seamless loop even with short content
+
+  inner.style.animationDuration = (CONFIG.TICKER_SPEED || 30) + 's';
+  el.className = 'ticker-' + CONFIG.TICKER_POSITION;
+  el.style.zoom = CONFIG.TICKER_SCALE || 1;
+  const tickerH = 28 * (CONFIG.TICKER_SCALE || 1);
+  const barBottom = CONFIG.TICKER_POSITION === 'bottom' ? `${tickerH}px` : '0px';
+  document.documentElement.style.setProperty('--progress-bar-bottom', barBottom);
+}
+
 function showMenuDisplay() {
-  if (!CONFIG.MENU_DISPLAY_ENABLED || CONFIG.SCENE_TIPS.length === 0) return;
+  const activeTips = CONFIG.SCENE_TIPS.filter(tip => !tip.disabled);
+  if (!CONFIG.MENU_DISPLAY_ENABLED || activeTips.length === 0) return;
   const el = document.getElementById('menu-display');
   const tbody = document.getElementById('menu-tbody');
   tbody.innerHTML = '';
-  CONFIG.SCENE_TIPS.forEach(tip => {
+  activeTips.forEach(tip => {
     const tr = document.createElement('tr');
     const dur = tip.returnDelay > 0 ? tip.returnDelay + 's' : '∞';
     tr.innerHTML = `<td>${tip.tokens}</td><td>${tip.scene}</td><td>${dur}</td>`;
@@ -572,20 +709,24 @@ function showMenuDisplay() {
   // After duration: hide, then wait interval, then show again
   menuDisplayTimeout = setTimeout(() => {
     el.classList.add('hidden');
-    if (CONFIG.MENU_DISPLAY_ENABLED && CONFIG.SCENE_TIPS.length > 0) {
+    if (CONFIG.MENU_DISPLAY_ENABLED && CONFIG.SCENE_TIPS.filter(t => !t.disabled).length > 0) {
       menuDisplayInterval = setTimeout(showMenuDisplay, CONFIG.MENU_DISPLAY_INTERVAL_SECONDS * 1000);
     }
   }, CONFIG.MENU_DISPLAY_DURATION_SECONDS * 1000);
 }
 
-function restartMenuTimer() {
+function restartMenuTimer(showImmediately = false) {
   if (menuDisplayInterval) clearTimeout(menuDisplayInterval);
   if (menuDisplayTimeout) clearTimeout(menuDisplayTimeout);
   const el = document.getElementById('menu-display');
   el.dataset.anim = CONFIG.MENU_DISPLAY_ANIMATION || 'fade';
   el.classList.add('hidden');
-  if (!CONFIG.MENU_DISPLAY_ENABLED || CONFIG.SCENE_TIPS.length === 0) return;
-  showMenuDisplay(); // show immediately, cycle continues inside showMenuDisplay
+  if (!CONFIG.MENU_DISPLAY_ENABLED || CONFIG.SCENE_TIPS.filter(t => !t.disabled).length === 0) return;
+  if (showImmediately) {
+    showMenuDisplay(); // show right away when user explicitly applies settings
+  } else {
+    menuDisplayInterval = setTimeout(showMenuDisplay, CONFIG.MENU_DISPLAY_INTERVAL_SECONDS * 1000);
+  }
 }
 
 function startReturnProgress(seconds) {
@@ -619,6 +760,27 @@ function startReturnProgress(seconds) {
   }, 50);
 }
 
+function startSwitchProgress(seconds) {
+  const barContainer = document.getElementById('scene-switch-bar');
+  const barFill = document.getElementById('scene-switch-bar-fill');
+  const progressBarEnabled = getComputedStyle(document.documentElement).getPropertyValue('--progress-bar-enabled').trim();
+  if (progressBarEnabled === 'false' || seconds === 0) return;
+  barFill.style.width = '100%';
+  barContainer.style.display = 'block';
+  const startTime = Date.now();
+  const duration = seconds * 1000;
+  clearInterval(switchProgressInterval);
+  switchProgressInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, duration - elapsed);
+    barFill.style.width = ((remaining / duration) * 100) + '%';
+    if (remaining <= 0) {
+      clearInterval(switchProgressInterval);
+      barContainer.style.display = 'none';
+    }
+  }, 50);
+}
+
 function stopAllProgress() {
   // Don't stop the return progress bar - it should persist independently
   // Only clear if there's no active return timer
@@ -629,6 +791,9 @@ function stopAllProgress() {
       barContainer.style.display = 'none';
     }
   }
+  clearInterval(switchProgressInterval);
+  const switchBarEl = document.getElementById('scene-switch-bar');
+  if (switchBarEl) { switchBarEl.style.display = 'none'; }
 }
 
 function showAlert(username, tokens, message, sceneEntry) {
@@ -643,10 +808,14 @@ function showAlert(username, tokens, message, sceneEntry) {
   alertBox.classList.remove('hidden');
   setTimeout(() => alertBox.classList.add('visible'), 50);
   clearTimeout(alertTimer);
+  const switchDelay = sceneEntry
+    ? ((sceneEntry.switchDelay !== undefined ? sceneEntry.switchDelay : CONFIG.SCENE_SWITCH_DELAY_SECONDS) || 0)
+    : 0;
+  const displayDuration = Math.max(CONFIG.ALERT_DURATION_SECONDS, switchDelay);
   alertTimer = setTimeout(() => {
     alertBox.classList.remove('visible');
     setTimeout(() => { alertBox.classList.add('hidden'); stopAllProgress(); }, 600);
-  }, CONFIG.ALERT_DURATION_SECONDS * 1000);
+  }, displayDuration * 1000);
 }
 
 function handleTip(tipData) {
@@ -720,11 +889,13 @@ async function processSceneQueue() {
   log('▶️ OVERLAY: Processing scene from queue - Scene: "' + entry.scene + '", Return delay: ' + entry.returnDelay + 's');
   log('📋 OVERLAY: Remaining in queue: ' + sceneQueue.length);
   
-  const switchDelay = CONFIG.SCENE_SWITCH_DELAY_SECONDS || 0;
+  const switchDelay = (entry.switchDelay !== undefined ? entry.switchDelay : CONFIG.SCENE_SWITCH_DELAY_SECONDS) || 0;
   
   if (switchDelay > 0) {
     log('⏱️ OVERLAY: Waiting ' + switchDelay + 's before switch');
+    startSwitchProgress(switchDelay);
     await new Promise(resolve => setTimeout(resolve, switchDelay * 1000));
+    clearInterval(switchProgressInterval);
   }
   
   log('🎬 OVERLAY: Switching to scene: "' + entry.scene + '"');
@@ -833,8 +1004,19 @@ function connectToServer() {
       const data = JSON.parse(event.data);
       log('⚙️ Received config update');
       CONFIG = { ...CONFIG, ...data };
-      restartMenuTimer();
+      try { localStorage.setItem('oss_cached_config', JSON.stringify(CONFIG)); } catch (_) {}
+      updateTicker();
+      if (data.menuAutoStart) {
+        restartMenuTimer(true); // always show menu immediately when starting/restoring
+      }
     } catch (err) { console.error('Config parse error:', err); }
+  };
+  configSource.onerror = () => {
+    log('⚠️ OVERLAY: Config stream lost — reconnecting in 3s...');
+    eventSource.close();
+    configSource.close();
+    if (themeSource) themeSource.close();
+    setTimeout(connectToServer, 3000);
   };
 
   // Theme update stream
@@ -842,8 +1024,56 @@ function connectToServer() {
   themeSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      log('🎨 Received theme update');
-      applyTheme(data);
+      if (data.__preview) {
+        const { __preview, __menuConfig, __tickerConfig, ...previewTheme } = data;
+        log('👁 Received preview theme — will revert in 10s');
+        applyTheme(previewTheme);
+        showAlert('DemoUser', 100, 'This is a preview!', null);
+        if (__menuConfig) {
+          const savedMenuConfig = {
+            MENU_DISPLAY_ENABLED: CONFIG.MENU_DISPLAY_ENABLED,
+            MENU_DISPLAY_POSITION: CONFIG.MENU_DISPLAY_POSITION,
+            MENU_DISPLAY_SCALE: CONFIG.MENU_DISPLAY_SCALE,
+            MENU_DISPLAY_ANIMATION: CONFIG.MENU_DISPLAY_ANIMATION,
+            MENU_DISPLAY_BG_OPACITY: CONFIG.MENU_DISPLAY_BG_OPACITY,
+            MENU_DISPLAY_DURATION_SECONDS: CONFIG.MENU_DISPLAY_DURATION_SECONDS,
+            MENU_DISPLAY_INTERVAL_SECONDS: CONFIG.MENU_DISPLAY_INTERVAL_SECONDS,
+            SCENE_TIPS: CONFIG.SCENE_TIPS,
+          };
+          Object.assign(CONFIG, __menuConfig);
+          showMenuDisplay();
+          setTimeout(() => {
+            Object.assign(CONFIG, savedMenuConfig);
+            document.getElementById('menu-display').classList.add('hidden');
+            if (menuDisplayTimeout) clearTimeout(menuDisplayTimeout);
+            if (menuDisplayInterval) clearTimeout(menuDisplayInterval);
+          }, 10000);
+        }
+        if (__tickerConfig) {
+          const savedTickerConfig = {
+            TICKER_POSITION: CONFIG.TICKER_POSITION,
+            TICKER_SPEED: CONFIG.TICKER_SPEED,
+            TICKER_SCALE: CONFIG.TICKER_SCALE,
+            TICKER_SEPARATOR: CONFIG.TICKER_SEPARATOR,
+          };
+          Object.assign(CONFIG, __tickerConfig);
+          updateTicker();
+          setTimeout(() => {
+            Object.assign(CONFIG, savedTickerConfig);
+            updateTicker();
+          }, 10000);
+        }
+        setTimeout(() => {
+          try {
+            const cached = localStorage.getItem('oss_cached_theme');
+            if (cached) { log('👁 Reverting preview theme'); applyTheme(JSON.parse(cached)); }
+          } catch (_) {}
+        }, 10000);
+      } else {
+        log('🎨 Received theme update');
+        applyTheme(data);
+        try { localStorage.setItem('oss_cached_theme', JSON.stringify(data)); } catch (_) {}
+      }
     } catch (err) { console.error('Theme parse error:', err); }
   };
 }
@@ -859,19 +1089,22 @@ function resetOverlay() {
   // Clear any active timers
   clearTimeout(sceneReturnTimer);
   clearInterval(returnProgressInterval);
-  
+  clearInterval(switchProgressInterval);
+
   // Hide alert box
   const alertBox = document.getElementById('alert-box');
   if (alertBox) {
     alertBox.classList.add('hidden');
     alertBox.classList.remove('visible');
   }
-  
-  // Hide progress bar
+
+  // Hide progress bars
   const progressBar = document.getElementById('scene-return-bar');
   if (progressBar) {
     progressBar.style.display = 'none';
   }
+  const switchBar = document.getElementById('scene-switch-bar');
+  if (switchBar) { switchBar.style.display = 'none'; }
   
   log('✅ Overlay state reset complete');
 }
@@ -898,6 +1131,18 @@ function refreshOBSScenes() {
 function start() {
   log('🚀 Starting — resetting state and connecting to server...');
   resetOverlay();
+
+  // Apply cached config/theme immediately so settings are correct before server responds
+  try {
+    const cachedConfig = localStorage.getItem('oss_cached_config');
+    if (cachedConfig) { CONFIG = { ...CONFIG, ...JSON.parse(cachedConfig) }; log('⚙️ OVERLAY: Restored config from local cache'); }
+  } catch (_) {}
+  try {
+    const cachedTheme = localStorage.getItem('oss_cached_theme');
+    if (cachedTheme) { applyTheme(JSON.parse(cachedTheme)); log('🎨 OVERLAY: Restored theme from local cache'); }
+  } catch (_) {}
+  updateTicker();
+
   connectToServer();
   refreshOBSScenes();
 }

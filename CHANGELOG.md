@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-14
+
+### Added
+- ⏳ **Scene Switch Delay Progress Bar** - A shrinking progress bar now appears at the bottom of the tip popup during the scene switch delay, giving viewers a visual countdown before the scene changes
+  - Respects the existing Progress Bar Enabled/Disabled theme setting
+  - Matches the popup's border radius and uses the same gradient and glow as the return bar
+  - Shimmer effect applies if shimmer is enabled in the theme
+  - Visible in the editor preview with a looping countdown animation
+- 🔄 **Auto-Update** - When a newer version is detected at startup, the server now prompts to download and apply the update automatically
+  - Downloads source files directly from the GitHub release tag — no zip extraction needed
+  - Preserves `config.json` and `last_applied_config.json` (user data is never overwritten)
+  - Restores execute permissions on `START_SERVER_MAC.command` after updating
+  - Falls back gracefully with a manual download link if the update fails
+
+### Fixed
+- 🕐 **Popup Duration with Long Switch Delays** - When the scene switch delay exceeds the standard alert display time, the popup now stays visible for the full delay duration instead of disappearing early
+- 🔁 **Ticker Separator at Loop Point** - The tip menu ticker now shows the separator before the first entry so the repeating loop has a visible divider at the wrap-around point
+
+---
+
 ## [1.0.0] - 2026-02-22
 
 ### Added

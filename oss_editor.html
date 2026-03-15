@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OBS Scene Switcher Editor</title>
+<title>OSS Editor</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Outfit:wght@300;500;700&display=swap');
@@ -161,7 +161,7 @@ body {
 }
 
 .preview-container {
-  width: 960px; height: 540px; background: #1a1a1a;
+  width: 1920px; height: 1080px; background: #1a1a1a;
   border: 2px solid var(--border); border-radius: 8px;
   position: absolute; top: 0; left: 0;
   overflow: hidden;
@@ -272,7 +272,7 @@ input[type="range"]::-moz-range-thumb {
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border); padding: 10px 20px;
   border-radius: 6px; font-size: 14px; font-weight: 500;
-  cursor: pointer; font-family: 'Outfit';
+  cursor: pointer; font-family: 'Outfit'; line-height: 1;
   transition: all 0.2s;
 }
 
@@ -332,6 +332,11 @@ input[type="range"]::-moz-range-thumb {
   background: var(--danger); color: white; border-color: var(--danger);
 }
 
+.btn-success {
+  background: #1a7a3a; color: white; border-color: #1a7a3a;
+}
+.btn-success:hover { background: #1f9045; border-color: #1f9045; }
+
 .btn-small {
   padding: 6px 12px; font-size: 12px;
 }
@@ -353,6 +358,10 @@ input[type="range"]::-moz-range-thumb {
 
 .grid-2 {
   display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+}
+
+.grid-divider {
+  grid-column: 1 / -1; border-top: 1px solid var(--border); margin: 4px 0 8px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -402,9 +411,20 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .scene-grid {
-  display: grid; grid-template-columns: 120px 1fr 120px 80px 50px;
+  display: grid; grid-template-columns: 28px 60px 1fr 100px 60px 80px 50px 50px;
   gap: 12px; align-items: center;
 }
+
+.drag-handle {
+  cursor: grab; color: var(--text-dim); font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-user-select: none; user-select: none; padding: 0 2px;
+}
+.drag-handle:active { cursor: grabbing; }
+
+.scene-item.dragging { opacity: 0.35; }
+.scene-item.drag-over { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.scene-item.tip-disabled { opacity: 0.4; }
 
 .scene-grid input {
   margin: 0;
@@ -589,23 +609,23 @@ input[type="range"]::-moz-range-thumb {
 <body>
 
 <div class="header">
-  <h1>🎨 OBS Scene Switcher</h1>
+  <h1>🎨 OBS Scene Switcher Editor</h1>
   <div class="header-actions">
     <div class="notification" id="notification"></div>
     <div class="connection-badge" id="connection-badge" title="Connection status. If server offline, start server. If Overlay not connected: Make sure oss_overlay.html is added to OBS and page permission is set to Advanced. If still not connected, right-click the OBS browser source → Refresh cache of current page">
       <span class="dot"></span><span id="connection-label">Checking…</span>
     </div>
-    <button class="btn" onclick="openTestTipEditor()">⚙️ Edit Test Tip</button>
-    <button class="btn" onclick="testAlert()">▶ Send Test Tip</button>
-    <button class="btn btn-primary" onclick="applyLive()">✓ Apply Changes to OBS</button>
+    <button class="btn" onclick="openTestTipEditor()" title="Edit and send a test tip to the OBS overlay">▶ Send Test Tip</button>
+    <button class="btn" onclick="previewInOBS()" title="Temporarily show the overlay in OBS with the current theme for 10 seconds — does not save">👁 Preview in OBS</button>
+    <button class="btn btn-primary" onclick="applyLive()" title="Applies and saves settings to OBS">✓ Apply Changes to OBS</button>
   </div>
 </div>
 
 <div class="tabs">
-  <button class="tab active" id="config-tab" onclick="switchTab('config')">Configuration</button>
-  <button class="tab" id="theme-tab" onclick="switchTab('theme')">Theme</button>
-  <button class="tab" id="server-tab" onclick="switchTab('server')">Server Setup</button>
-  <button class="tab" id="about-tab" onclick="switchTab('about')">About</button>
+  <button class="tab active" id="config-tab" onclick="switchTab('config')" title="Configure scene triggers and general settings">Configuration</button>
+  <button class="tab" id="theme-tab" onclick="switchTab('theme')" title="Customize the visual appearance of the overlay">Theme</button>
+  <button class="tab" id="server-tab" onclick="switchTab('server')" title="Set up platform connections (Chaturbate, Joystick.tv, StripChat)">Server Setup</button>
+  <button class="tab" id="about-tab" onclick="switchTab('about')" title="About this application">About</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -623,15 +643,18 @@ input[type="range"]::-moz-range-thumb {
     <div class="form-group">
       <input type="text" id="custom-theme-name" placeholder="My Custom Theme" style="margin-bottom: 10px;">
       <div style="display: flex; gap: 10px;">
-        <button class="btn" onclick="saveCustomTheme()" style="flex: 1;">💾 Save Theme</button>
-        <button class="btn" onclick="exportTheme()">📤 Export JSON</button>
-        <button class="btn" onclick="importTheme()">📥 Import JSON</button>
+        <button class="btn" onclick="saveCustomTheme()" style="flex: 1;" title="Save the current theme settings as a named preset">💾 Save Theme</button>
+        <button class="btn" onclick="exportTheme()" title="Export the current theme as a JSON file to share or back up">📤 Export JSON</button>
+        <button class="btn" onclick="importTheme()" title="Import a previously exported theme JSON file">📥 Import JSON</button>
       </div>
     </div>
     
     <div class="saved-themes" id="saved-themes"></div>
     
-    <div class="section-title">Background</div>
+    <div class="section-title section-title-collapsible" onclick="toggleSection('theme-background')">
+      Background <span class="section-toggle" id="theme-background-toggle">▼</span>
+    </div>
+    <div class="section-content" id="theme-background-content">
     <div class="gradient-builder">
       <div class="gradient-preview" id="gradient-preview"></div>
       <div class="gradient-controls">
@@ -661,8 +684,12 @@ input[type="range"]::-moz-range-thumb {
         </div>
       </div>
     </div>
-    
-    <div class="section-title">Colors</div>
+    </div>
+
+    <div class="section-title section-title-collapsible" onclick="toggleSection('theme-colors')">
+      Colors <span class="section-toggle" id="theme-colors-toggle">▼</span>
+    </div>
+    <div class="section-content" id="theme-colors-content">
     <div class="form-group">
       <label>Accent Color</label>
       <div class="color-group">
@@ -670,7 +697,6 @@ input[type="range"]::-moz-range-thumb {
         <input type="text" id="accent-text" value="#ff4ecb" oninput="syncColor('accent')">
       </div>
     </div>
-    
     <div class="form-group">
       <label>Token Color</label>
       <div class="color-group">
@@ -678,7 +704,6 @@ input[type="range"]::-moz-range-thumb {
         <input type="text" id="gold-text" value="#ffd166" oninput="syncColor('gold')">
       </div>
     </div>
-    
     <div class="form-group">
       <label>Info Color</label>
       <div class="color-group">
@@ -686,8 +711,12 @@ input[type="range"]::-moz-range-thumb {
         <input type="text" id="teal-text" value="#06d6a0" oninput="syncColor('teal')">
       </div>
     </div>
-    
-    <div class="section-title">Layout</div>
+    </div>
+
+    <div class="section-title section-title-collapsible" onclick="toggleSection('theme-layout')">
+      Alert Box Layout<span class="section-toggle" id="theme-layout-toggle">▼</span>
+    </div>
+    <div class="section-content" id="theme-layout-content">
     <div class="grid-2">
       <div class="form-group">
         <label>Box Width (px)</label>
@@ -709,8 +738,12 @@ input[type="range"]::-moz-range-thumb {
         <input type="number" id="border-width" value="2" min="0" max="10" oninput="updatePreview()">
       </div>
     </div>
-    
-    <div class="section-title">Position</div>
+    </div>
+
+    <div class="section-title section-title-collapsible" onclick="toggleSection('theme-position')">
+      Alert Box Position <span class="section-toggle" id="theme-position-toggle">▼</span>
+    </div>
+    <div class="section-content" id="theme-position-content">
     <div class="grid-2">
       <div class="form-group">
         <label>Position</label>
@@ -729,8 +762,12 @@ input[type="range"]::-moz-range-thumb {
         <input type="number" id="position-offset" value="60" min="0" max="300" oninput="updatePreview()">
       </div>
     </div>
-    
-    <div class="section-title">Animation</div>
+    </div>
+
+    <div class="section-title section-title-collapsible" onclick="toggleSection('theme-animation')">
+      Animation <span class="section-toggle" id="theme-animation-toggle">▼</span>
+    </div>
+    <div class="section-content" id="theme-animation-content">
     <div class="grid-2">
       <div class="form-group">
         <label>Animation Style</label>
@@ -770,8 +807,12 @@ input[type="range"]::-moz-range-thumb {
         <input type="number" id="progress-bar-height" value="8" min="1" max="10" oninput="updatePreview()">
       </div>
     </div>
-    
-    <div class="section-title">Typography</div>
+    </div>
+
+    <div class="section-title section-title-collapsible" onclick="toggleSection('theme-typography')">
+      Typography <span class="section-toggle" id="theme-typography-toggle">▼</span>
+    </div>
+    <div class="section-content" id="theme-typography-content">
     <div class="grid-2">
       <div class="form-group">
         <label>Display Font (Headers)</label>
@@ -810,7 +851,101 @@ input[type="range"]::-moz-range-thumb {
         <input type="number" id="font-size-message" value="14" min="10" max="24" oninput="updatePreview()">
       </div>
     </div>
-    
+    </div>
+
+    <div class="section-title section-title-collapsible" onclick="toggleSection('theme-menu-display')">
+      Tip Menu Display <span class="section-toggle" id="theme-menu-display-toggle">▼</span>
+    </div>
+    <div class="section-content" id="theme-menu-display-content">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Tip Menu Display</label>
+        <select id="menu-display-position" title="Tip menu display position" onchange="updatePreview()">
+          <option value="disabled">Disabled</option>
+          <option value="top-right">Top Right</option>
+          <option value="top-left">Top Left</option>
+          <option value="top-center">Top Center</option>
+          <option value="bottom-right">Bottom Right</option>
+          <option value="bottom-left">Bottom Left</option>
+          <option value="bottom-center">Bottom Center</option>
+          <option value="center">Center</option>
+        </select>
+        <div class="help-text">Periodically show a table of tip prices and scenes on the overlay</div>
+      </div>
+      <div class="form-group">
+        <label>Animation Style</label>
+        <select id="menu-display-animation" title="Menu animation style" onchange="updatePreview()">
+          <option value="fade">Fade</option>
+          <option value="slide-down">Slide Down</option>
+          <option value="slide-up">Slide Up</option>
+          <option value="zoom">Zoom</option>
+          <option value="none">None (Instant)</option>
+        </select>
+        <div class="help-text">How the menu appears and disappears</div>
+      </div>
+      <div class="form-group">
+        <label>Scale</label>
+        <div class="slider-group">
+          <input type="range" id="menu-display-scale" min="1" max="4" step="0.05" value="1" title="Menu display scale" oninput="this.nextElementSibling.textContent = parseFloat(this.value).toFixed(2); updatePreview()">
+          <span class="slider-value" id="menu-display-scale-value">1.00</span>
+        </div>
+        <div class="help-text">Size of the menu overlay</div>
+      </div>
+      <div class="form-group">
+        <label>Background Opacity</label>
+        <div class="slider-group">
+          <input type="range" id="menu-display-bg-opacity" min="0" max="1" step="0.01" value="1" title="Menu background opacity" oninput="this.nextElementSibling.textContent = parseFloat(this.value).toFixed(2); updatePreview()">
+          <span class="slider-value" id="menu-display-bg-opacity-value">1.00</span>
+        </div>
+        <div class="help-text">Background transparency of the menu overlay (0 = fully transparent)</div>
+      </div>
+    </div>
+    </div>
+
+    <div class="section-title section-title-collapsible" onclick="toggleSection('theme-ticker')">
+      Tip Ticker <span class="section-toggle" id="theme-ticker-toggle">▼</span>
+    </div>
+    <div class="section-content" id="theme-ticker-content">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Tip Ticker</label>
+        <select id="ticker-position" title="Tip ticker position" onchange="updatePreview()">
+          <option value="disabled">Disabled</option>
+          <option value="top">Top</option>
+          <option value="bottom">Bottom</option>
+        </select>
+        <div class="help-text">Show a scrolling ticker bar with all active tip prices</div>
+      </div>
+      <div class="form-group">
+        <label>Ticker Scroll Speed</label>
+        <div class="slider-group">
+          <input type="range" id="ticker-speed" min="10" max="120" step="5" value="30"
+            title="Ticker scroll duration — lower = faster"
+            oninput="this.nextElementSibling.textContent = this.value + 's'; updatePreview()">
+          <span class="slider-value" id="ticker-speed-value">30s</span>
+        </div>
+        <div class="help-text">Full scroll cycle duration — 10s is fast, 120s is slow</div>
+      </div>
+      <div class="form-group">
+        <label>Ticker Scale</label>
+        <div class="slider-group">
+          <input type="range" id="ticker-scale" min="0.5" max="2" step="0.05" value="1"
+            title="Ticker scale"
+            oninput="this.nextElementSibling.textContent = parseFloat(this.value).toFixed(2); updatePreview()">
+          <span class="slider-value" id="ticker-scale-value">1.00</span>
+        </div>
+        <div class="help-text">Size of the ticker bar and text</div>
+      </div>
+      <div class="form-group">
+        <label>Ticker Separator</label>
+        <input type="text" id="ticker-separator" value="⎹" maxlength="8"
+          title="Character or emoji used between ticker items"
+          oninput="updatePreview()">
+        <div class="help-text">Symbol shown between tip entries in the ticker</div>
+      </div>
+    </div>
+    </div>
+
   </div>
   
   <div class="right-panel">
@@ -849,7 +984,7 @@ input[type="range"]::-moz-range-thumb {
       <div class="form-group">
         <label>Scene Switch Delay (seconds)</label>
         <input type="number" id="scene-switch-delay" value="0" min="0" max="10">
-        <div class="help-text">Wait time before switching scene (0 = instant)</div>
+        <div class="help-text">Global wait time before switching scene (0 = no delay)</div>
       </div>
       <div class="form-group">
         <label>Show Overlay for Tips not triggering a scene change</label>
@@ -863,32 +998,11 @@ input[type="range"]::-moz-range-thumb {
     </div>
 
     <div class="section-title section-title-collapsible" onclick="toggleSection('scene-switch-menu')">
-      Scene Switch Menu Display
+      Tip Menu Configuration
       <span class="section-toggle" id="scene-switch-menu-toggle">▼</span>
     </div>
     <div class="section-content" id="scene-switch-menu-content">
     <div class="grid-2">
-      <div class="form-group">
-        <label>Enable Tip Menu Display</label>
-        <select id="menu-display-enabled" onchange="updatePreview()">
-          <option value="false">Disabled</option>
-          <option value="true">Enabled</option>
-        </select>
-        <div class="help-text">Periodically show a table of tip prices and scenes on the overlay</div>
-      </div>
-      <div class="form-group">
-        <label>Display Position</label>
-        <select id="menu-display-position" onchange="updatePreview()">
-          <option value="top-right">Top Right</option>
-          <option value="top-left">Top Left</option>
-          <option value="top-center">Top Center</option>
-          <option value="bottom-right">Bottom Right</option>
-          <option value="bottom-left">Bottom Left</option>
-          <option value="bottom-center">Bottom Center</option>
-          <option value="center">Center</option>
-        </select>
-        <div class="help-text">Where to show the menu table on screen</div>
-      </div>
       <div class="form-group">
         <label>Display Interval (seconds)</label>
         <input type="number" id="menu-display-interval" value="30" min="5" max="3600" title="Display interval in seconds" oninput="updateMenuIntervalDisplay()">
@@ -902,56 +1016,31 @@ input[type="range"]::-moz-range-thumb {
         <input type="number" id="menu-display-duration" value="8" min="3" max="60" title="Display duration in seconds">
         <div class="help-text">How long the menu stays visible (in seconds)</div>
       </div>
-      <div class="form-group">
-        <label>Scale</label>
-        <div class="slider-group">
-          <input type="range" id="menu-display-scale" min="1" max="4" step="0.05" value="1" title="Menu display scale" oninput="this.nextElementSibling.textContent = parseFloat(this.value).toFixed(2); updatePreview()">
-          <span class="slider-value" id="menu-display-scale-value">1.00</span>
-        </div>
-        <div class="help-text">Size of the menu overlay</div>
-      </div>
-      <div class="form-group">
-        <label>Animation Style</label>
-        <select id="menu-display-animation" title="Menu animation style" onchange="updatePreview()">
-          <option value="fade">Fade</option>
-          <option value="slide-down">Slide Down</option>
-          <option value="slide-up">Slide Up</option>
-          <option value="zoom">Zoom</option>
-          <option value="none">None (Instant)</option>
-        </select>
-        <div class="help-text">How the menu appears and disappears</div>
-      </div>
-      <div class="form-group">
-        <label>Background Opacity</label>
-        <div class="slider-group">
-          <input type="range" id="menu-display-bg-opacity" min="0" max="1" step="0.01" value="1" title="Menu background opacity" oninput="this.nextElementSibling.textContent = parseFloat(this.value).toFixed(2); updatePreview()">
-          <span class="slider-value" id="menu-display-bg-opacity-value">1.00</span>
-        </div>
-        <div class="help-text">Background transparency of the menu overlay (0 = fully transparent)</div>
-      </div>
     </div>
     </div>
 
     <div class="section-title">Scene Switching by Tip Amount</div>
     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-      <button type="button" id="import-scenes-btn" class="btn" onclick="importScenesFromOBS()">⬇ Import Scene names from OBS</button>
+      <button type="button" id="import-scenes-btn" class="btn" onclick="importScenesFromOBS()" title="Fetch the current scene list from OBS so you can pick scenes from a dropdown instead of typing them">⬇ Import Scene names from OBS</button>
       <span style="font-size: 12px; color: var(--text-dim);">Requires Advanced Access enabled in OBS overlay, and "All connected" above. When scene names have been imported, you <br>can select them in a list instead of having to write them. The Default Scene name can also be selected with a menu.</span>
     </div>
     <div class="info-box warning-box" style="margin-bottom: 16px;">
       ⚠️ <strong>No OBS connection yet?</strong> You can type scene names manually — they must match OBS <strong>exactly</strong> (capitals and spaces matter).
     </div>
     
-    <div class="scene-label" style="display: grid; grid-template-columns: 120px 1fr 120px 80px 50px; gap: 12px; margin-bottom: 10px; padding: 0 15px;">
+    <div class="scene-label" style="display: grid; grid-template-columns: 28px 60px 1fr 100px 60px 80px 50px 50px; gap: 12px; margin-bottom: 10px; padding: 0 15px;">
+      <span></span>
       <span>Tip Amount</span>
       <span>OBS Scene Name</span>
       <span>Return (sec)<br>0 = No return</span>
-      <span>Show Overlay</span>
+      <span>Switch Delay (s)</span>
+      <span>Show Overlay?</span>
+      <span>Active?</span>
       <span>Delete</span>
-      <span></span>
     </div>
     
     <div id="scene-tips-container"></div>
-    <button class="btn" onclick="addSceneTip()" style="width: 100%; margin-top: 10px;">+ Add Scene Trigger</button>
+    <button class="btn" onclick="addSceneTip()" style="width: 100%; margin-top: 10px;" title="Add a new tip amount → scene trigger row">+ Add Scene Trigger</button>
     
     <div class="info-box" style="margin-top: 20px;">
       💡 <strong>Return Delay Tips:</strong><br>
@@ -975,10 +1064,10 @@ input[type="range"]::-moz-range-thumb {
     <div class="config-section">
       <h3 style="margin-bottom: 15px;">Select Platforms</h3>
       <p style="margin-bottom: 20px; line-height: 1.6; color: var(--text-dim);">
-        Enable one or both platforms. You can run Chaturbate and Joystick.tv simultaneously!
+        Enable one or more platforms. You can run Chaturbate, Joystick.tv, and StripChat simultaneously!
       </p>
       
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px;">
         <div class="platform-toggle" onclick="togglePlatform('chaturbate')" id="chaturbate-toggle" style="cursor: pointer; padding: 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s;">
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
             <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; transition: all 0.2s;" id="chaturbate-check">
@@ -996,27 +1085,39 @@ input[type="range"]::-moz-range-thumb {
             </div>
             <strong style="font-size: 16px;">Joystick.tv</strong>
           </div>
-          <div style="color: var(--text-dim); font-size: 13px;">WebSocket • <500ms instant</div>
+          <div style="color: var(--text-dim); font-size: 13px;">WebSocket • &lt;500ms instant</div>
+        </div>
+
+        <div class="platform-toggle" onclick="togglePlatform('stripchat')" id="stripchat-toggle" style="cursor: pointer; padding: 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; transition: all 0.2s;" id="stripchat-check">
+              <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity 0.2s;" id="stripchat-dot"></div>
+            </div>
+            <strong style="font-size: 16px;">StripChat</strong>
+          </div>
+          <div style="color: var(--text-dim); font-size: 13px;">WebSocket • &lt;500ms instant</div>
         </div>
       </div>
     </div>
     
     <div class="section-title">Logging</div>
     <div class="config-section">
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
-        <div>
-          <strong>Verbose Logging</strong>
-          <div style="color: var(--text-dim); font-size: 13px; margin-top: 4px; line-height: 1.5;">
-            When <strong>off</strong>, the server only logs tips, user enter/leave, and errors — ideal for long streams.<br>
-            When <strong>on</strong>, all debug events are logged (useful for troubleshooting).
-          </div>
+      <strong>Default Log Level</strong>
+      <div style="color: var(--text-dim); font-size: 13px; margin-top: 4px; margin-bottom: 15px; line-height: 1.5;">
+        Choose what the server logs by default. You can still change this each time the server starts.
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <div onclick="setLogLevel(1)" id="log-level-btn-1" style="cursor: pointer; flex: 1; padding: 14px; border: 2px solid var(--accent); border-radius: 10px; background: rgba(255,78,203,0.05); text-align: center; transition: all 0.2s;">
+          <div style="font-weight: 600; margin-bottom: 4px;">Tips only</div>
+          <div style="font-size: 12px; color: var(--text-dim);">Recommended</div>
         </div>
-        <div onclick="toggleVerboseLogging()" id="verbose-toggle"
-             style="cursor: pointer; padding: 12px 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s; display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
-          <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center;">
-            <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity 0.2s;" id="verbose-dot"></div>
-          </div>
-          <span id="verbose-label" style="font-weight: 600; min-width: 20px;">Off</span>
+        <div onclick="setLogLevel(2)" id="log-level-btn-2" style="cursor: pointer; flex: 1; padding: 14px; border: 2px solid var(--border); border-radius: 10px; text-align: center; transition: all 0.2s;">
+          <div style="font-weight: 600; margin-bottom: 4px;">Tips + events</div>
+          <div style="font-size: 12px; color: var(--text-dim);">Enter / leave</div>
+        </div>
+        <div onclick="setLogLevel(3)" id="log-level-btn-3" style="cursor: pointer; flex: 1; padding: 14px; border: 2px solid var(--border); border-radius: 10px; text-align: center; transition: all 0.2s;">
+          <div style="font-weight: 600; margin-bottom: 4px;">Full debug</div>
+          <div style="font-size: 12px; color: var(--text-dim);">Troubleshooting</div>
         </div>
       </div>
     </div>
@@ -1126,7 +1227,7 @@ input[type="range"]::-moz-range-thumb {
         <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid var(--accent);">
           <strong style="display: block; margin-bottom: 10px;">Bot Settings:</strong>
           <ul style="line-height: 1.8; padding-left: 20px; margin: 0;">
-            <li><strong>Name:</strong> OBS Scene Switcher</li>
+            <li><strong>Name:</strong> OBS Scene Switcher Editor</li>
             <li><strong>Description:</strong> Automatically switches OBS scenes based on tips</li>
             <li><strong>OAuth Redirect URL:</strong> <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">http://localhost:3000/callback</code></li>
           </ul>
@@ -1169,9 +1270,55 @@ input[type="range"]::-moz-range-thumb {
       </div>
     </div>
     
+    <!-- StripChat Configuration -->
+    <div id="stripchat-config-section" style="display: none;">
+      <div class="section-title">StripChat Configuration</div>
+
+      <div class="config-section">
+        <h3 style="margin-bottom: 15px;">Setup</h3>
+        <p style="margin-bottom: 15px; line-height: 1.6;">
+          StripChat requires no API key or token. Just enter your streamer username.
+        </p>
+
+        <div class="form-group">
+          <label>StripChat Username</label>
+          <input type="text" id="stripchat-username" placeholder="your_stripchat_username">
+          <div class="help-text">Enter your username exactly as it appears in your StripChat profile URL (stripchat.com/<strong>username</strong>)</div>
+        </div>
+
+        <div style="background: rgba(76,175,80,0.1); padding: 15px; border-radius: 8px; margin-top: 20px; margin-bottom: 15px; border-left: 3px solid #4CAF50;">
+          <strong style="display: block; margin-bottom: 10px; color: #4CAF50;">✨ How it works</strong>
+          <p style="margin: 0; line-height: 1.6;">
+            StripChat has no public API for streamers. Instead, the server polls your stream's internal chat endpoint every 2 seconds and filters for tip events. Your username is used to look up your model ID and chat feed — no account login or API credentials are needed.
+          </p>
+          <ul style="margin: 10px 0 0 0; padding-left: 20px; line-height: 1.8;">
+            <li>Tips (including tip menu items and tip notes) ✅</li>
+            <li>Tipper username and amount ✅</li>
+            <li>User enter / leave events ❌ <em style="color: var(--text-dim);">(not available via the chat API)</em></li>
+          </ul>
+        </div>
+
+        <div style="background: rgba(255,152,0,0.1); padding: 15px; border-radius: 8px; border-left: 3px solid #FF9800;">
+          <strong style="display: block; margin-bottom: 10px; color: #FF9800;">⚠️ Unofficial integration — may break without warning</strong>
+          <p style="margin: 0 0 10px 0; line-height: 1.6;">
+            Since StripChat does not provide a public API, and this integration works by reverse-engineering their internal chat endpoint, which is undocumented and unsupported, it can stop working at any time if StripChat:
+          </p>
+          <ul style="margin: 0; padding-left: 20px; line-height: 1.8; color: var(--text-dim);">
+            <li>Changes the URL structure of the chat endpoint</li>
+            <li>Adds authentication requirements</li>
+            <li>Changes the format of tip messages</li>
+            <li>Rate-limits or blocks automated polling</li>
+          </ul>
+          <p style="margin: 10px 0 0 0; line-height: 1.6;">
+            If tips stop appearing, check for an updated version of this tool, or notify the author. There are links in bottom of the About page.
+          </p>
+        </div>
+      </div>
+    </div>
+
     <!-- Save Button -->
     <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--border);">
-      <button class="btn btn-primary" onclick="saveUnifiedServerConfig()" style="font-size: 16px; padding: 14px 28px;" id="save-server-btn" disabled>
+      <button class="btn btn-primary" onclick="saveUnifiedServerConfig()" style="font-size: 16px; padding: 14px 28px;" id="save-server-btn" disabled title="Download config.json with your platform credentials — place it in the project folder to connect to your streaming platforms">
         💾 Download config.json
       </button>
       <div id="platform-warning" style="margin-top: 15px; color: var(--danger); display: none;">
@@ -1205,7 +1352,7 @@ input[type="range"]::-moz-range-thumb {
 
 <div id="about-content" class="content full-width">
   <div style="max-width: 900px; margin: 0 auto; padding: 40px; overflow-y: auto; max-height: calc(100vh - 125px);">
-    <h2 style="margin-bottom: 20px;">OBS Scene Switcher v1.0</h2>
+    <h2 style="margin-bottom: 20px;">OBS Scene Switcher v1.1.0</h2>
     <p style="line-height: 1.8; margin-bottom: 20px;">
       Beautiful and user-friendly scene switcher with customizable overlay for streaming platforms.
       Features live preview with animated demonstrations, preset themes, custom theme management, 
@@ -1249,13 +1396,15 @@ input[type="range"]::-moz-range-thumb {
     <ul style="line-height: 1.8; padding-left: 20px;">
       <li><strong>Chaturbate</strong> - Connects via Events API ✓</li>
       <li><strong>Joystick.tv</strong> - Connects through WebSocket API ✓</li>
+      <li><strong>StripChat</strong> - Connects through WebSocket API ✓</li>
     </ul>
     
     <h3 style="margin-top: 30px; margin-bottom: 15px;">Tips</h3>
     <ul style="line-height: 1.8; padding-left: 20px;">
+      <li>You can add a trigger for a scene several times. For example for different durations</li>
       <li>You don't need to have the editor (this page) open all the time, only when making changes</li>
-      <li>The overlay toggle controls which scenes show overlays</li>
-      <li><strong>Test Editor</strong> - Click ⚙️ Edit Test Tip to customize test data</li>
+      <li>The overlay toggle controls which scenes show an overlay</li>
+      <li><strong>Test Editor</strong> - Click ▶ Send Test Tip to customize test data</li>
       <li><strong>Resizer</strong> - Drag divider to adjust size, the preview auto-scales</li>
       <li><strong>Progress Bar</strong> - Empties as time runs out, customizable thickness</li>
       <li><strong>Scene Names</strong> - Must match scene names in OBS exactly (capitals matter!). Can be imported from OBS when all is connected</li>
@@ -1263,12 +1412,12 @@ input[type="range"]::-moz-range-thumb {
     
     <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; color: var(--text-dim);">
       Made with ❤️ for the streaming community<br>
-      v1.0 • February 2026
+      v1.1.0 • March 2026
     </div>
     
     <div style="margin-top: 30px; padding: 20px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; text-align: center; line-height: 1.8;">
       <strong style="color: var(--accent);">Support This Project</strong><br>
-      <span style="font-size: 14px;">If you find this software useful or want improvements, please consider making a donation at one of my streaming sites:</span><br>
+      <span style="font-size: 14px;">If you find this software useful or want improvements, please consider making a donation at one of my streaming sites below.<br>If you want to make a donation, but in a different way than these site, let me know ❤️<br>If you can't make a donation, just come by and say hi and let me know how you use this tool 😊</span><br>
       <div style="margin-top: 12px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
         <a href="https://chaturbate.com/brsrk/" target="_blank" style="color: var(--accent); text-decoration: none;">Chaturbate</a>
         <span style="color: var(--border);">•</span>
@@ -1284,7 +1433,7 @@ input[type="range"]::-moz-range-thumb {
 <div class="modal-overlay" id="test-tip-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3>Edit Test Tip</h3>
+      <h3>Send Test Tip</h3>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -1301,8 +1450,8 @@ input[type="range"]::-moz-range-thumb {
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="closeTestTipEditor()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveTestTipAndSend()">OK & Send</button>
+      <button class="btn" onclick="closeTestTipEditor()" title="Close without sending">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTestTipAndSend()" title="Save these test tip values and send them to the overlay now">OK & Send</button>
     </div>
   </div>
 </div>
@@ -1318,8 +1467,8 @@ input[type="range"]::-moz-range-thumb {
       <p style="margin: 10px 0 0 0; color: var(--text-dim); font-size: 13px;">This action cannot be undone.</p>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="closeDeleteThemeModal()">Cancel</button>
-      <button class="btn btn-danger" onclick="confirmDeleteTheme()">Delete</button>
+      <button class="btn" onclick="closeDeleteThemeModal()" title="Keep this theme">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDeleteTheme()" title="Permanently delete this saved theme preset">Delete</button>
     </div>
   </div>
 </div>
@@ -1458,6 +1607,7 @@ let savedThemes = JSON.parse(localStorage.getItem('customThemes') || '{}');
 // ═══════════════════════════════════════════════════════════
 
 let sceneTips = [];
+let dragSrcIndex = null;
 
 let obsScenes = []; // populated from /scenes when overlay is connected
 
@@ -1485,12 +1635,13 @@ function init() {
   updateGradient();
   updatePreview();
   
-  // Show Server Setup tab if credentials not configured, otherwise Config tab
+  // Show Server Setup tab if credentials not configured, otherwise restore last active tab
   const hasSavedCredentials = localStorage.getItem('apiConfigured') === 'true';
   if (!hasSavedCredentials) {
     switchTab('server');
   } else {
-    switchTab('config');
+    const savedTab = localStorage.getItem('activeTab');
+    switchTab(savedTab || 'config');
   }
   
   // Setup config change detection
@@ -1521,8 +1672,8 @@ function loadSavedConfiguration() {
       if (config.SHOW_OTHER_TIPS_OVERLAY !== undefined) {
         document.getElementById('show-other-tips-overlay').value = config.SHOW_OTHER_TIPS_OVERLAY.toString();
       }
-      if (config.MENU_DISPLAY_ENABLED !== undefined) {
-        document.getElementById('menu-display-enabled').value = config.MENU_DISPLAY_ENABLED.toString();
+      if (config.MENU_DISPLAY_POSITION) {
+        document.getElementById('menu-display-position').value = config.MENU_DISPLAY_POSITION;
       }
       if (config.MENU_DISPLAY_INTERVAL_SECONDS) {
         document.getElementById('menu-display-interval').value = config.MENU_DISPLAY_INTERVAL_SECONDS;
@@ -1534,9 +1685,6 @@ function loadSavedConfiguration() {
       if (config.MENU_DISPLAY_DURATION_SECONDS) {
         document.getElementById('menu-display-duration').value = config.MENU_DISPLAY_DURATION_SECONDS;
       }
-      if (config.MENU_DISPLAY_POSITION) {
-        document.getElementById('menu-display-position').value = config.MENU_DISPLAY_POSITION;
-      }
       if (config.MENU_DISPLAY_SCALE !== undefined) {
         document.getElementById('menu-display-scale').value = config.MENU_DISPLAY_SCALE;
         document.getElementById('menu-display-scale-value').textContent = parseFloat(config.MENU_DISPLAY_SCALE).toFixed(2);
@@ -1547,6 +1695,20 @@ function loadSavedConfiguration() {
       if (config.MENU_DISPLAY_BG_OPACITY !== undefined) {
         document.getElementById('menu-display-bg-opacity').value = config.MENU_DISPLAY_BG_OPACITY;
         document.getElementById('menu-display-bg-opacity-value').textContent = parseFloat(config.MENU_DISPLAY_BG_OPACITY).toFixed(2);
+      }
+      if (config.TICKER_POSITION !== undefined) {
+        document.getElementById('ticker-position').value = config.TICKER_POSITION;
+      }
+      if (config.TICKER_SPEED !== undefined) {
+        document.getElementById('ticker-speed').value = config.TICKER_SPEED;
+        document.getElementById('ticker-speed-value').textContent = config.TICKER_SPEED + 's';
+      }
+      if (config.TICKER_SCALE !== undefined) {
+        document.getElementById('ticker-scale').value = config.TICKER_SCALE;
+        document.getElementById('ticker-scale-value').textContent = parseFloat(config.TICKER_SCALE).toFixed(2);
+      }
+      if (config.TICKER_SEPARATOR !== undefined) {
+        document.getElementById('ticker-separator').value = config.TICKER_SEPARATOR;
       }
     } catch (err) {
       console.log('Could not load saved config:', err);
@@ -1587,7 +1749,6 @@ function setupConfigChangeDetection() {
     'default-scene',
     'scene-switch-delay',
     'show-other-tips-overlay',
-    'menu-display-enabled',
     'menu-display-interval',
     'menu-display-duration',
     'menu-display-position',
@@ -1676,6 +1837,8 @@ function switchTab(tabName) {
     contentEl.classList.add('active');
   }
   
+  localStorage.setItem('activeTab', tabName);
+
   if (tabName === 'theme' || tabName === 'config') {
     updatePreview();
   }
@@ -1860,11 +2023,9 @@ function renderSavedThemes() {
 }
 
 function saveCustomTheme() {
-  const name = document.getElementById('custom-theme-name').value.trim();
-  if (!name) {
-    showNotification('Please enter a theme name', true);
-    return;
-  }
+  const input = document.getElementById('custom-theme-name');
+  const name = input.value.trim() || 'My Custom Theme';
+  input.value = name;
   
   const key = name.toLowerCase().replace(/\s+/g, '-');
   const theme = getCurrentTheme();
@@ -2036,17 +2197,18 @@ function updatePreview() {
   // Determine if we should show dark text (for light backgrounds)
   const isDarkText = isLightBackground(theme.bgColor1, theme.bgColor2);
   const menuSnippet = buildMenuPreview(theme, gradient, isDarkText);
+  const tickerSnippet = buildTickerPreview(theme, gradient, isDarkText);
   const messageColor = isDarkText ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.65)';
-  
+
   container.innerHTML = `
     <style>
       #alert-box-preview {
         position: absolute;
-        width: ${theme.boxWidth / 2}px;
+        width: ${theme.boxWidth}px;
         border: ${theme.borderWidth}px solid ${theme.accent};
         border-radius: ${theme.radius}px;
         padding: 0;
-        box-shadow: 0 0 15px ${theme.accent}40;
+        box-shadow: 0 0 30px ${theme.accent}40;
         font-family: ${theme.bodyFont};
         opacity: ${theme.opacity};
         overflow: hidden;
@@ -2067,7 +2229,7 @@ function updatePreview() {
         position: absolute;
         inset: 0;
         border-radius: ${Math.max(0, theme.radius - theme.borderWidth)}px;
-        padding: ${theme.topBarHeight / 2}px;
+        padding: ${theme.topBarHeight}px;
         background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
         -webkit-mask: 
           linear-gradient(#fff 0 0) content-box, 
@@ -2085,28 +2247,28 @@ function updatePreview() {
       }
 
       .alert-body-preview {
-        padding: 10px 12px 11px;
+        padding: 20px 24px 22px;
         position: relative;
         z-index: 1;
       }
 
       .alert-label-preview {
         font-family: ${theme.displayFont};
-        font-size: ${theme.fontSizeLabel / 2}px;
-        letter-spacing: 1.5px;
+        font-size: ${theme.fontSizeLabel}px;
+        letter-spacing: 3px;
         color: ${theme.accent};
         text-transform: uppercase;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
         opacity: 0.85;
       }
 
       .alert-username-preview {
         font-family: ${theme.displayFont};
-        font-size: ${theme.fontSizeUsername / 2}px;
-        letter-spacing: 0.5px;
+        font-size: ${theme.fontSizeUsername}px;
+        letter-spacing: 1px;
         color: ${isDarkText ? '#000' : '#fff'};
         line-height: 1;
-        text-shadow: 0 0 10px ${theme.accent}99;
+        text-shadow: 0 0 20px ${theme.accent}99;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -2114,21 +2276,21 @@ function updatePreview() {
 
       .alert-tokens-preview {
         font-family: ${theme.displayFont};
-        font-size: ${theme.fontSizeTokens / 2}px;
+        font-size: ${theme.fontSizeTokens}px;
         color: ${theme.gold};
-        margin-top: 1px;
-        text-shadow: 0 0 8px ${theme.gold}80;
+        margin-top: 2px;
+        text-shadow: 0 0 16px ${theme.gold}80;
       }
 
       .alert-message-preview {
-        font-size: ${theme.fontSizeMessage / 2}px;
+        font-size: ${theme.fontSizeMessage}px;
         color: ${messageColor};
-        margin-top: 5px;
+        margin-top: 10px;
         line-height: 1.3;
         font-style: italic;
-        border-left: 1px solid ${theme.accent};
-        padding-left: 5px;
-        max-height: 60px;
+        border-left: 2px solid ${theme.accent};
+        padding-left: 10px;
+        max-height: 120px;
         overflow: hidden;
         text-overflow: ellipsis;
         display: -webkit-box;
@@ -2138,26 +2300,27 @@ function updatePreview() {
 
       .alert-scene-badge-preview {
         display: inline-block;
-        margin-top: 4px;
+        margin-top: 8px;
         background: ${theme.teal}20;
-        border: 1px solid ${theme.teal};
+        border: 2px solid ${theme.teal};
         color: ${theme.teal};
-        font-size: ${theme.fontSizeLabel / 2}px;
+        font-size: ${theme.fontSizeLabel}px;
         font-weight: 600;
-        letter-spacing: 0.5px;
+        letter-spacing: 1px;
         text-transform: uppercase;
-        padding: 2px 5px;
-        border-radius: 2px;
+        padding: 4px 10px;
+        border-radius: 4px;
       }
 
       #preview-return-bar {
         position: absolute;
-        bottom: 0;
+        bottom: ${tickerSnippet.barOffset}px;
         left: 0;
         right: 0;
-        height: ${theme.progressBarHeight / 2}px;
+        height: ${theme.progressBarHeight}px;
         background: rgba(0, 0, 0, 0.5);
         display: ${theme.progressBarEnabled ? 'block' : 'none'};
+        z-index: 10;
       }
 
       #preview-return-bar-fill {
@@ -2165,6 +2328,22 @@ function updatePreview() {
         background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
         box-shadow: 0 0 15px ${theme.accent}, 0 -1px 5px ${theme.accent};
         animation: preview-bar-countdown 15s linear infinite${theme.shimmer ? ', preview-bar-shimmer 3s linear infinite' : ''};
+        ${theme.shimmer ? 'background-size: 200% 100%;' : ''}
+      }
+
+      #preview-switch-bar {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        height: ${theme.progressBarHeight}px;
+        background: rgba(0,0,0,0.3);
+        display: ${theme.progressBarEnabled ? 'block' : 'none'};
+        z-index: 10; overflow: hidden;
+        border-radius: 0 0 ${theme.radius}px ${theme.radius}px;
+      }
+      #preview-switch-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
+        box-shadow: 0 0 15px ${theme.accent}, 0 -1px 5px ${theme.accent};
+        animation: preview-bar-countdown 8s linear infinite${theme.shimmer ? ', preview-bar-shimmer 3s linear infinite' : ''};
         ${theme.shimmer ? 'background-size: 200% 100%;' : ''}
       }
 
@@ -2178,6 +2357,7 @@ function updatePreview() {
         100% { background-position: 200% 0%; }
       }
       ${menuSnippet.css}
+      ${tickerSnippet.css}
     </style>
 
     <div id="alert-box-preview" style="${getPositionStyle(theme)}">
@@ -2189,11 +2369,15 @@ function updatePreview() {
         <div class="alert-message-preview">"Amazing show! 💖 This is a longer message to demonstrate multi-line text wrapping in the alert box."</div>
         <div class="alert-scene-badge-preview">▶ Switching to VIP SCENE for x seconds</div>
       </div>
+      <div id="preview-switch-bar">
+        <div id="preview-switch-bar-fill"></div>
+      </div>
     </div>
     <div id="preview-return-bar">
       <div id="preview-return-bar-fill"></div>
     </div>
     ${menuSnippet.html}
+    ${tickerSnippet.html}
   `;
   scalePreview();
 }
@@ -2211,7 +2395,8 @@ function updatePreviewAnimation() {
   const isDarkText = isLightBackground(theme.bgColor1, theme.bgColor2);
   const messageColor = isDarkText ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.65)';
   const menuSnippet = buildMenuPreview(theme, gradient, isDarkText);
-  
+  const tickerSnippet = buildTickerPreview(theme, gradient, isDarkText);
+
   container.innerHTML = `
     <style>
       @keyframes preview-${theme.animationType} {
@@ -2220,11 +2405,11 @@ function updatePreviewAnimation() {
       
       #alert-box-preview {
         position: absolute;
-        width: ${theme.boxWidth / 2}px;
+        width: ${theme.boxWidth}px;
         border: ${theme.borderWidth}px solid ${theme.accent};
         border-radius: ${theme.radius}px;
         padding: 0;
-        box-shadow: 0 0 15px ${theme.accent}40;
+        box-shadow: 0 0 30px ${theme.accent}40;
         font-family: ${theme.bodyFont};
         opacity: ${theme.opacity};
         overflow: hidden;
@@ -2246,7 +2431,7 @@ function updatePreviewAnimation() {
         position: absolute;
         inset: 0;
         border-radius: ${Math.max(0, theme.radius - theme.borderWidth)}px;
-        padding: ${theme.topBarHeight / 2}px;
+        padding: ${theme.topBarHeight}px;
         background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
         -webkit-mask: 
           linear-gradient(#fff 0 0) content-box, 
@@ -2264,28 +2449,28 @@ function updatePreviewAnimation() {
       }
 
       .alert-body-preview {
-        padding: 10px 12px 11px;
+        padding: 20px 24px 22px;
         position: relative;
         z-index: 1;
       }
 
       .alert-label-preview {
         font-family: ${theme.displayFont};
-        font-size: ${theme.fontSizeLabel / 2}px;
-        letter-spacing: 1.5px;
+        font-size: ${theme.fontSizeLabel}px;
+        letter-spacing: 3px;
         color: ${theme.accent};
         text-transform: uppercase;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
         opacity: 0.85;
       }
 
       .alert-username-preview {
         font-family: ${theme.displayFont};
-        font-size: ${theme.fontSizeUsername / 2}px;
-        letter-spacing: 0.5px;
+        font-size: ${theme.fontSizeUsername}px;
+        letter-spacing: 1px;
         color: ${isDarkText ? '#000' : '#fff'};
         line-height: 1;
-        text-shadow: 0 0 10px ${theme.accent}99;
+        text-shadow: 0 0 20px ${theme.accent}99;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -2293,21 +2478,21 @@ function updatePreviewAnimation() {
 
       .alert-tokens-preview {
         font-family: ${theme.displayFont};
-        font-size: ${theme.fontSizeTokens / 2}px;
+        font-size: ${theme.fontSizeTokens}px;
         color: ${theme.gold};
-        margin-top: 1px;
-        text-shadow: 0 0 8px ${theme.gold}80;
+        margin-top: 2px;
+        text-shadow: 0 0 16px ${theme.gold}80;
       }
 
       .alert-message-preview {
-        font-size: ${theme.fontSizeMessage / 2}px;
+        font-size: ${theme.fontSizeMessage}px;
         color: ${messageColor};
-        margin-top: 5px;
+        margin-top: 10px;
         line-height: 1.3;
         font-style: italic;
-        border-left: 1px solid ${theme.accent};
-        padding-left: 5px;
-        max-height: 60px;
+        border-left: 2px solid ${theme.accent};
+        padding-left: 10px;
+        max-height: 120px;
         overflow: hidden;
         text-overflow: ellipsis;
         display: -webkit-box;
@@ -2317,26 +2502,27 @@ function updatePreviewAnimation() {
 
       .alert-scene-badge-preview {
         display: inline-block;
-        margin-top: 4px;
+        margin-top: 8px;
         background: ${theme.teal}20;
-        border: 1px solid ${theme.teal};
+        border: 2px solid ${theme.teal};
         color: ${theme.teal};
-        font-size: ${theme.fontSizeLabel / 2}px;
+        font-size: ${theme.fontSizeLabel}px;
         font-weight: 600;
-        letter-spacing: 0.5px;
+        letter-spacing: 1px;
         text-transform: uppercase;
-        padding: 2px 5px;
-        border-radius: 2px;
+        padding: 4px 10px;
+        border-radius: 4px;
       }
 
       #preview-return-bar {
         position: absolute;
-        bottom: 0;
+        bottom: ${tickerSnippet.barOffset}px;
         left: 0;
         right: 0;
-        height: ${theme.progressBarHeight / 2}px;
+        height: ${theme.progressBarHeight}px;
         background: rgba(0, 0, 0, 0.5);
         display: ${theme.progressBarEnabled ? 'block' : 'none'};
+        z-index: 10;
       }
 
       #preview-return-bar-fill {
@@ -2344,6 +2530,22 @@ function updatePreviewAnimation() {
         background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
         box-shadow: 0 0 15px ${theme.accent}, 0 -1px 5px ${theme.accent};
         animation: preview-bar-countdown 15s linear infinite${theme.shimmer ? ', preview-bar-shimmer 3s linear infinite' : ''};
+        ${theme.shimmer ? 'background-size: 200% 100%;' : ''}
+      }
+
+      #preview-switch-bar {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        height: ${theme.progressBarHeight}px;
+        background: rgba(0,0,0,0.3);
+        display: ${theme.progressBarEnabled ? 'block' : 'none'};
+        z-index: 10; overflow: hidden;
+        border-radius: 0 0 ${theme.radius}px ${theme.radius}px;
+      }
+      #preview-switch-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, ${theme.accent}, ${theme.gold}, ${theme.teal}, ${theme.accent});
+        box-shadow: 0 0 15px ${theme.accent}, 0 -1px 5px ${theme.accent};
+        animation: preview-bar-countdown 8s linear infinite${theme.shimmer ? ', preview-bar-shimmer 3s linear infinite' : ''};
         ${theme.shimmer ? 'background-size: 200% 100%;' : ''}
       }
 
@@ -2357,6 +2559,7 @@ function updatePreviewAnimation() {
         100% { background-position: 200% 0%; }
       }
       ${menuSnippet.css}
+      ${tickerSnippet.css}
     </style>
 
     <div id="alert-box-preview" style="${getPositionStyle(theme)}">
@@ -2368,11 +2571,15 @@ function updatePreviewAnimation() {
         <div class="alert-message-preview">"Amazing show! 💖 This is a longer message to demonstrate multi-line text wrapping in the alert box."</div>
         <div class="alert-scene-badge-preview">▶ Switching to VIP SCENE for x seconds</div>
       </div>
+      <div id="preview-switch-bar">
+        <div id="preview-switch-bar-fill"></div>
+      </div>
     </div>
     <div id="preview-return-bar">
       <div id="preview-return-bar-fill"></div>
     </div>
     ${menuSnippet.html}
+    ${tickerSnippet.html}
   `;
 }
 
@@ -2414,42 +2621,59 @@ function isLightBackground(color1, color2) {
   return avgBrightness > 180; // Light background if brightness > 180
 }
 
+function getTickerPreviewEdgeOffset(side, theme) {
+  const tickerPos = document.getElementById('ticker-position').value;
+  if (tickerPos !== side) return 0;
+  const tickerScale = parseFloat(document.getElementById('ticker-scale').value) || 1;
+  const tickerH = 28 * tickerScale;
+  if (side === 'bottom') return tickerH + (theme ? theme.progressBarHeight : 8);
+  return tickerH;
+}
+
 function getPositionStyle(theme) {
-  const offset = theme.positionOffset / 2;
+  const offset = theme.positionOffset;
+  const topOff = offset + getTickerPreviewEdgeOffset('top', theme);
+  const botOff = offset + getTickerPreviewEdgeOffset('bottom', theme);
   const positions = {
-    'bottom-right': `bottom: ${offset}px; right: ${offset}px;`,
-    'bottom-left': `bottom: ${offset}px; left: ${offset}px;`,
-    'top-right': `top: ${offset}px; right: ${offset}px;`,
-    'top-left': `top: ${offset}px; left: ${offset}px;`,
-    'center': `top: 50%; left: 50%; transform: translate(-50%, -50%);`,
-    'bottom-center': `bottom: ${offset}px; left: 50%; transform: translateX(-50%);`,
-    'top-center': `top: ${offset}px; left: 50%; transform: translateX(-50%);`
+    'bottom-right':  `bottom: ${botOff}px; right: ${offset}px;`,
+    'bottom-left':   `bottom: ${botOff}px; left: ${offset}px;`,
+    'top-right':     `top: ${topOff}px; right: ${offset}px;`,
+    'top-left':      `top: ${topOff}px; left: ${offset}px;`,
+    'center':        `top: 50%; left: 50%; transform: translate(-50%, -50%);`,
+    'bottom-center': `bottom: ${botOff}px; left: 50%; transform: translateX(-50%);`,
+    'top-center':    `top: ${topOff}px; left: 50%; transform: translateX(-50%);`
   };
   return positions[theme.position] || positions['bottom-right'];
 }
 
-function getMenuPositionStyle() {
+function getMenuPositionStyle(theme) {
   const pos = document.getElementById('menu-display-position').value;
-  const offset = '10px';
+  const menuScale = parseFloat(document.getElementById('menu-display-scale').value) || 1;
+  const topExtra = getTickerPreviewEdgeOffset('top', theme);
+  const botExtra = getTickerPreviewEdgeOffset('bottom', theme);
+  const top = ((20 + topExtra) / menuScale) + 'px';
+  const bot = ((20 + botExtra) / menuScale) + 'px';
+  const horiz = (20 / menuScale) + 'px';
   const positions = {
-    'top-right':     `top: ${offset}; right: ${offset};`,
-    'top-left':      `top: ${offset}; left: ${offset};`,
-    'top-center':    `top: ${offset}; left: 50%; transform: translateX(-50%);`,
-    'bottom-right':  `bottom: ${offset}; right: ${offset};`,
-    'bottom-left':   `bottom: ${offset}; left: ${offset};`,
-    'bottom-center': `bottom: ${offset}; left: 50%; transform: translateX(-50%);`,
+    'top-right':     `top: ${top}; right: ${horiz};`,
+    'top-left':      `top: ${top}; left: ${horiz};`,
+    'top-center':    `top: ${top}; left: 50%; transform: translateX(-50%);`,
+    'bottom-right':  `bottom: ${bot}; right: ${horiz};`,
+    'bottom-left':   `bottom: ${bot}; left: ${horiz};`,
+    'bottom-center': `bottom: ${bot}; left: 50%; transform: translateX(-50%);`,
     'center':        `top: 50%; left: 50%; transform: translate(-50%, -50%);`,
   };
   return positions[pos] || positions['top-right'];
 }
 
 function buildMenuPreview(theme, gradient, isDarkText) {
-  const enabled = document.getElementById('menu-display-enabled').value === 'true';
-  if (!enabled || sceneTips.length === 0) return { css: '', html: '' };
+  const enabled = document.getElementById('menu-display-position').value !== 'disabled';
+  const activeTips = sceneTips.filter(tip => !tip.disabled);
+  if (!enabled || activeTips.length === 0) return { css: '', html: '' };
   const scale = parseFloat(document.getElementById('menu-display-scale').value) || 1;
   const menuBgOpacity = parseFloat(document.getElementById('menu-display-bg-opacity').value);
 
-  const rows = sceneTips.map(tip => {
+  const rows = activeTips.map(tip => {
     const dur = tip.returnDelay > 0 ? tip.returnDelay + 's' : '∞';
     return `<tr><td>${tip.tokens}</td><td>${tip.scene}</td><td>${dur}</td></tr>`;
   }).join('');
@@ -2457,11 +2681,11 @@ function buildMenuPreview(theme, gradient, isDarkText) {
   const css = `
       #menu-preview {
         position: absolute;
-        ${getMenuPositionStyle()}
-        min-width: 130px;
-        max-width: 190px;
-        border-radius: ${theme.radius / 2}px;
-        border: ${theme.borderWidth / 2}px solid ${theme.accent};
+        ${getMenuPositionStyle(theme)}
+        min-width: 260px;
+        max-width: 380px;
+        border-radius: ${theme.radius}px;
+        border: ${theme.borderWidth}px solid ${theme.accent};
         overflow: hidden;
         opacity: ${theme.opacity};
         font-family: ${theme.bodyFont};
@@ -2474,25 +2698,26 @@ function buildMenuPreview(theme, gradient, isDarkText) {
         z-index: 0;
         ${menuBgOpacity === 0 ? 'display:none;' : ''}
       }
-      #menu-preview .menu-body { position: relative; z-index: 1; padding: 6px 8px; }
+      #menu-preview .menu-body { position: relative; z-index: 1; padding: 12px 16px; }
       #menu-preview .menu-title {
         font-family: ${theme.displayFont};
-        font-size: 9px; color: ${theme.accent};
+        font-size: 18px; color: ${theme.accent};
         text-transform: uppercase; letter-spacing: 0.08em;
-        margin-bottom: 4px;
-        border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 3px;
+        margin-bottom: 8px;
+        border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 6px;
       }
-      #menu-preview table { width: 100%; border-collapse: collapse; font-size: 6.5px; }
+      #menu-preview table { width: 100%; border-collapse: collapse; font-size: 13px; }
       #menu-preview th {
-        color: ${theme.gold}; text-align: left; font-size: 5px;
-        text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 4px 3px; opacity: 0.8;
+        color: ${theme.gold}; text-align: left; font-size: 10px;
+        text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 8px 6px; opacity: 0.8;
       }
       #menu-preview td {
-        padding: 2.5px 4px;
+        padding: 5px 8px;
         color: ${isDarkText ? '#000' : '#fff'};
-        border-top: 1px solid rgba(255,255,255,0.06);
+        border-top: 2px solid rgba(255,255,255,0.06);
       }
-      #menu-preview td:first-child { color: ${theme.gold}; font-weight: 600; }`;
+      #menu-preview td:first-child { color: ${theme.gold}; font-weight: 600; }
+      #menu-preview th:last-child, #menu-preview td:last-child { text-align: right; }`;
 
   const html = `
     <div id="menu-preview">
@@ -2507,6 +2732,66 @@ function buildMenuPreview(theme, gradient, isDarkText) {
     </div>`;
 
   return { css, html };
+}
+
+function buildTickerPreview(theme, gradient, isDarkText) {
+  const position = document.getElementById('ticker-position').value;
+  const activeTips = sceneTips.filter(t => !t.disabled);
+  if (position === 'disabled' || activeTips.length === 0) return { css: '', html: '' };
+
+  const speed = parseInt(document.getElementById('ticker-speed').value) || 30;
+  const scale = parseFloat(document.getElementById('ticker-scale').value) || 1;
+  const separator = document.getElementById('ticker-separator').value || '⎹';
+  const bgOpacity = parseFloat(document.getElementById('menu-display-bg-opacity').value);
+  const textColor = isDarkText ? '#000' : '#fff';
+
+  const sep = `<span style="color:${theme.accent};margin:0 30px">${separator}</span>`;
+  const items = activeTips.map(tip => {
+    const dur = tip.returnDelay > 0 ? tip.returnDelay + 's' : '∞';
+    return `<span style="color:${theme.gold};font-weight:600">${tip.tokens} tokens</span>`
+         + `<span style="color:${theme.accent};margin:0 4px">→</span>${tip.scene}`
+         + `<span style="color:${theme.accent};margin:0 4px">(${dur})</span>`;
+  }).join(sep);
+
+  const content = `<span>${sep}${items}</span>`;
+  const edgeBorder = position === 'top'
+    ? `border-bottom: ${theme.borderWidth}px solid ${theme.accent};`
+    : `border-top: ${theme.borderWidth}px solid ${theme.accent};`;
+
+  const tickerHeight = 28 * scale;
+
+  const css = `
+    #ticker-preview {
+      position: absolute; left: 0; right: 0;
+      ${position === 'top' ? 'top: 0;' : `bottom: 0;`}
+      height: ${28 * scale}px; overflow: hidden;
+      display: flex; align-items: center;
+      z-index: 5;
+      ${edgeBorder}
+    }
+    .ticker-bg-preview {
+      position: absolute; inset: 0;
+      background: ${gradient}; opacity: ${bgOpacity};
+    }
+    .ticker-inner-preview {
+      position: relative; z-index: 1;
+      display: inline-block; white-space: nowrap;
+      font-family: ${theme.bodyFont}; font-size: ${14 * scale}px;
+      color: ${textColor}; padding: 0 10px;
+      animation: ticker-preview-scroll ${speed}s linear infinite;
+    }
+    @keyframes ticker-preview-scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-25%); }
+    }`;
+
+  const html = `
+    <div id="ticker-preview">
+      <div class="ticker-bg-preview"></div>
+      <div class="ticker-inner-preview">${content.repeat(4)}</div>
+    </div>`;
+
+  return { css, html, barOffset: position === 'bottom' ? tickerHeight : 0 };
 }
 
 function getCurrentTheme() {
@@ -2576,32 +2861,63 @@ function renderSceneTips() {
 
   sceneTips.forEach((tip, i) => {
     const div = document.createElement('div');
-    div.className = 'scene-item';
+    div.className = 'scene-item' + (tip.disabled ? ' tip-disabled' : '');
+    div.draggable = true;
     const showOverlay = tip.showOverlay !== false;
 
     div.innerHTML = `
       <div class="scene-grid">
+        <div class="drag-handle" title="Drag to reorder">⠿</div>
         <input type="number" placeholder="Tokens" onchange="updateSceneTip(${i}, 'tokens', this.value)">
         <div class="scene-name-cell"></div>
         <input type="number" placeholder="Return" min="0" title="Seconds before returning to main scene (0 = stay forever)" onchange="updateSceneTip(${i}, 'returnDelay', this.value)">
+        <input type="number" placeholder="Delay" min="0" max="60" title="Seconds to wait before switching to this scene (0 = instant)" onchange="updateSceneTip(${i}, 'switchDelay', this.value)">
         <label style="display: flex; align-items: center; justify-content: center; cursor: pointer; gap: 6px;">
           <input type="checkbox" onchange="updateSceneTip(${i}, 'showOverlay', this.checked)" style="cursor: pointer; width: auto; margin: 0;">
           <span style="font-size: 12px; color: var(--text-dim);">Show</span>
         </label>
-        <button class="btn-danger btn-small" onclick="removeSceneTip(${i})">✕</button>
+        <button class="btn-small ${tip.disabled ? 'btn' : 'btn-success'}" onclick="toggleSceneTip(${i})" title="${tip.disabled ? 'Disabled — click to enable' : 'Enabled — click to disable'}">${tip.disabled ? 'OFF' : 'ON'}</button>
+        <button class="btn-danger btn-small" onclick="removeSceneTip(${i})" title="Delete this scene trigger">✕</button>
       </div>
     `;
     const inputs = div.querySelectorAll('input[type="number"], input[type="checkbox"]');
     inputs[0].value = tip.tokens;
     inputs[1].value = tip.returnDelay;
-    inputs[2].checked = showOverlay;
+    inputs[2].value = tip.switchDelay ?? 0;
+    inputs[3].checked = showOverlay;
     div.querySelector('.scene-name-cell').appendChild(buildSceneField(i, tip.scene));
+
+    div.addEventListener('dragstart', (e) => {
+      dragSrcIndex = i;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => div.classList.add('dragging'), 0);
+    });
+    div.addEventListener('dragend', () => {
+      div.classList.remove('dragging');
+      container.querySelectorAll('.scene-item').forEach(el => el.classList.remove('drag-over'));
+    });
+    div.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      container.querySelectorAll('.scene-item').forEach(el => el.classList.remove('drag-over'));
+      div.classList.add('drag-over');
+    });
+    div.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (dragSrcIndex === null || dragSrcIndex === i) return;
+      const [moved] = sceneTips.splice(dragSrcIndex, 1);
+      sceneTips.splice(i, 0, moved);
+      dragSrcIndex = null;
+      renderSceneTips();
+      markNeedsApply();
+    });
+
     container.appendChild(div);
   });
 }
 
 function addSceneTip() {
-  sceneTips.push({ tokens: 25, scene: 'New Scene', returnDelay: 30, showOverlay: true });
+  sceneTips.push({ tokens: 25, scene: 'New Scene', returnDelay: 30, switchDelay: 0, showOverlay: true });
   renderSceneTips();
 }
 
@@ -2620,6 +2936,13 @@ function removeSceneTip(index) {
   renderSceneTips();
 }
 
+
+function toggleSceneTip(index) {
+  sceneTips[index].disabled = !sceneTips[index].disabled;
+  renderSceneTips();
+  markNeedsApply();
+}
+
 // ═══════════════════════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════════════════════
@@ -2631,13 +2954,17 @@ function getConfig() {
     SCENE_SWITCH_DELAY_SECONDS: parseInt(document.getElementById('scene-switch-delay').value),
     SHOW_OTHER_TIPS_OVERLAY: document.getElementById('show-other-tips-overlay').value === 'true',
     SCENE_TIPS: sceneTips,
-    MENU_DISPLAY_ENABLED: document.getElementById('menu-display-enabled').value === 'true',
+    MENU_DISPLAY_ENABLED: document.getElementById('menu-display-position').value !== 'disabled',
     MENU_DISPLAY_INTERVAL_SECONDS: parseInt(document.getElementById('menu-display-interval').value) || 30,
     MENU_DISPLAY_DURATION_SECONDS: parseInt(document.getElementById('menu-display-duration').value) || 8,
     MENU_DISPLAY_POSITION: document.getElementById('menu-display-position').value,
     MENU_DISPLAY_SCALE: parseFloat(document.getElementById('menu-display-scale').value) || 1,
     MENU_DISPLAY_ANIMATION: document.getElementById('menu-display-animation').value,
     MENU_DISPLAY_BG_OPACITY: parseFloat(document.getElementById('menu-display-bg-opacity').value),
+    TICKER_POSITION: document.getElementById('ticker-position').value,
+    TICKER_SPEED: parseInt(document.getElementById('ticker-speed').value) || 30,
+    TICKER_SCALE: parseFloat(document.getElementById('ticker-scale').value) || 1,
+    TICKER_SEPARATOR: document.getElementById('ticker-separator').value || '⎹',
   };
 }
 
@@ -2651,364 +2978,32 @@ function toggleConfigMethod() {
   document.getElementById('separate-config').style.display = method === 'separate' ? 'block' : 'none';
 }
 
-function saveServerConfig() {
-  const method = document.querySelector('input[name="config-method"]:checked').value;
-  let username, token;
-  
-  if (method === 'url') {
-    const url = document.getElementById('events-api-url').value.trim();
-    if (!url) {
-      showNotification('Please enter the Events API URL', true);
-      return;
-    }
-    const match = url.match(/\/events\/([^\/]+)\/([^\/]+)/);
-    if (!match) {
-      showNotification('Invalid URL format', true);
-      return;
-    }
-    username = match[1];
-    token = match[2];
-  } else {
-    username = document.getElementById('cb-username').value.trim();
-    token = document.getElementById('cb-token').value.trim();
-    if (!username || !token) {
-      showNotification('Please enter both username and token', true);
-      return;
-    }
-  }
-  
-  // Generate updated server file content
-  const serverContent = generateServerFile(username, token);
-  
-  // Download the file
-  const blob = new Blob([serverContent], { type: 'text/javascript' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'oss_server.js';
-  a.click();
-  URL.revokeObjectURL(url);
-  
-  // Save credentials to localStorage
-  if (method === 'url') {
-    const urlValue = document.getElementById('events-api-url').value.trim();
-    saveCredentials('url', username, token, urlValue);
-  } else {
-    saveCredentials('separate', username, token);
-  }
-  
-  showNotification('Server file downloaded! Credentials saved.');
-}
-
-function generateServerFile(username, token) {
-  // Full server code with placeholders replaced
-  const serverCode = `// ============================================================
-// Chaturbate Events API → OBS Bridge Server
-// ============================================================
-// Generated by OBS Scene Switcher Editor v2.1
-// ============================================================
-
-const http = require('http');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-
-const logFile = path.join(__dirname, 'oss_server_debug.log');
-function log(message) {
-  const timestamp = new Date().toISOString();
-  const logMessage = \`[\${timestamp}] \${message}\`;
-  console.log(message);
-  try { fs.appendFileSync(logFile, logMessage + '\\n'); } catch (err) {}
-}
-
-try {
-  fs.writeFileSync(logFile, '═══════════════════════════════════════════════════════\\n');
-  fs.appendFileSync(logFile, \`🚀 OBS Scene Switcher Server Starting\\nTime: \${new Date().toISOString()}\\n\`);
-  fs.appendFileSync(logFile, '═══════════════════════════════════════════════════════\\n\\n');
-} catch (err) {}
-
-// ⚙️ CONFIGURATION — Your credentials are below
-const CONFIG = {
-  CB_USERNAME: '${username}',
-  CB_TOKEN: '${token}',
-  PORT: 3000,
-};
-
-// ============================================================
-
-const EVENTS_BASE_URL = \`https://eventsapi.chaturbate.com/events/\${CONFIG.CB_USERNAME}/\${CONFIG.CB_TOKEN}/\`;
-let eventsUrl = EVENTS_BASE_URL;
-let latestEvents = [];
-let processedEventIds = new Set();
-let clients = [];
-let themeClients = [];
-let configClients = [];
-
-function cleanOldEventIds() {
-  if (processedEventIds.size > 1000) {
-    console.log('🧹 Clearing old event IDs (' + processedEventIds.size + ' tracked)');
-    processedEventIds.clear();
-  }
-}
-
-setInterval(cleanOldEventIds, 300000);
-
-console.log('🚀 Starting OBS Scene Switcher Server...');
-console.log('');
-
-if (CONFIG.CB_USERNAME === 'your_username_here' || CONFIG.CB_TOKEN === 'your_token_here') {
-  console.error('❌ ERROR: Please edit the CONFIG section!');
-  process.exit(1);
-}
-
-const server = http.createServer((req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
-    return;
-  }
-
-  const parsedUrl = new URL(req.url, \`http://localhost:\${CONFIG.PORT}\`);
-  const pathname = parsedUrl.pathname;
-
-  if (pathname === '/events') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ events: latestEvents }));
-    latestEvents = [];
-    return;
-  }
-
-  if (pathname === '/stream') {
-    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
-    clients.push(res);
-    console.log('✅ OBS browser source connected (' + clients.length + ' active)');
-    req.on('close', () => {
-      clients = clients.filter(client => client !== res);
-      console.log('❌ Browser source disconnected (' + clients.length + ' active)');
-    });
-    return;
-  }
-
-  if (pathname === '/theme-stream') {
-    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
-    themeClients.push(res);
-    console.log('🎨 Theme editor connected');
-    req.on('close', () => { themeClients = themeClients.filter(client => client !== res); console.log('🎨 Theme editor disconnected'); });
-    return;
-  }
-
-  if (pathname === '/config-stream') {
-    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
-    configClients.push(res);
-    console.log('⚙️ Config editor connected');
-    req.on('close', () => { configClients = configClients.filter(client => client !== res); console.log('⚙️ Config editor disconnected'); });
-    return;
-  }
-
-  if (pathname === '/update-theme' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      try {
-        const theme = JSON.parse(body);
-        console.log('🎨 Broadcasting theme update to ' + clients.length + ' overlay(s)');
-        const message = JSON.stringify({ type: 'theme', data: theme });
-        clients.forEach(client => { client.write('data: ' + message + '\\n\\n'); });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true }));
-      } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
-      }
-    });
-    return;
-  }
-
-  if (pathname === '/update-config' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      try {
-        const config = JSON.parse(body);
-        console.log('⚙️ Broadcasting config update to ' + clients.length + ' overlay(s)');
-        const message = JSON.stringify({ type: 'config', data: config });
-        clients.forEach(client => { client.write('data: ' + message + '\\n\\n'); });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true }));
-      } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
-      }
-    });
-    return;
-  }
-
-  if (pathname === '/test') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      let testData = { username: 'TestUser123', tokens: 50, message: 'This is a test tip!' };
-      if (body) {
-        try {
-          const custom = JSON.parse(body);
-          if (custom.username) testData.username = custom.username;
-          if (custom.tokens) testData.tokens = custom.tokens;
-          if (custom.message !== undefined) testData.message = custom.message;
-        } catch (err) {}
-      }
-      console.log('🧪 TEST TIP triggered: ' + testData.username + ' - ' + testData.tokens + ' tokens');
-      const testEvent = { type: 'tip', username: testData.username, tokens: testData.tokens, message: testData.message, isAnon: false, timestamp: Date.now() };
-      const message = JSON.stringify({ events: [testEvent] });
-      clients.forEach(client => { client.write('data: ' + message + '\\n\\n'); });
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('Test tip sent!\\n');
-    });
-    return;
-  }
-
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Chaturbate → OBS Bridge Server is running!\\n\\nConnect your OBS browser source to:\\nhttp://localhost:' + CONFIG.PORT + '\\n');
-});
-
-server.listen(CONFIG.PORT, () => {
-  console.log('✅ Server running at http://localhost:' + CONFIG.PORT);
-  console.log('');
-  console.log('📡 Polling Chaturbate Events API...');
-  console.log('   Username: ' + CONFIG.CB_USERNAME);
-  console.log('   🛡️  Event deduplication: ACTIVE');
-  console.log('');
-  console.log('Now add this to OBS:');
-  console.log('   1. Browser Source → Local File → oss_overlay.html');
-  console.log('   2. Set width=1920, height=1080');
-  console.log('   3. Page Permissions = "Advanced access to OBS"');
-  console.log('');
-  console.log('To customize: Open oss_editor.html in your browser');
-  console.log('To test: http://localhost:' + CONFIG.PORT + '/test');
-  console.log('');
-  console.log('Press Ctrl+C to stop the server.');
-  console.log('');
-  startPolling();
-});
-
-let fetchActive = false;
-
-async function startPolling() {
-  if (fetchActive) return;
-  fetchActive = true;
-  try {
-    const data = await fetchEvents(eventsUrl + '?timeout=10');
-    if (data.next_url) eventsUrl = data.next_url;
-    if (data.events && data.events.length > 0) {
-      console.log('📬 Received ' + data.events.length + ' event(s)');
-      for (const event of data.events) {
-        processEvent(event);
-      }
-      if (clients.length > 0) {
-        const message = JSON.stringify({ events: latestEvents });
-        clients.forEach(client => { client.write('data: ' + message + '\\n\\n'); });
-      }
-    }
-  } catch (err) {
-    console.error('⚠️  Events API error:', err.message, '— retrying in 5s');
-    await sleep(5000);
-  } finally {
-    fetchActive = false;
-  }
-  setImmediate(startPolling);
-}
-
-function processEvent(event) {
-  const method = event.method;
-  const obj = event.object;
-  let eventId;
-  if (method === 'tip') {
-    const tip = obj.tip || obj;
-    const username = obj.user?.username || 'Anonymous';
-    const tokens = tip.tokens || 0;
-    const message = tip.message || '';
-    const isAnon = tip.isanon || false;
-    eventId = \`tip_\${username}_\${tokens}_\${message}_\${isAnon}\`;
-  } else {
-    const username = obj.user?.username || 'Unknown';
-    eventId = \`\${method}_\${username}_\${obj.message || ''}\`;
-  }
-  if (processedEventIds.has(eventId)) return;
-  processedEventIds.add(eventId);
-  console.log('📦 NEW Event - Type: ' + method);
-  if (method === 'tip') {
-    const tip = obj.tip || obj;
-    const username = obj.user ? obj.user.username : 'Anonymous';
-    let tokens = tip.tokens;
-    if (tokens === undefined || tokens === null) {
-      tokens = obj.tokens || tip.amount || obj.amount || 0;
-    }
-    console.log('Processing tip: User=' + username + ', Tokens=' + tokens + ', Has message=' + !!(tip.message || obj.message));
-    if (!tokens || tokens <= 0) {
-      console.log('⚠️  Ignored: No valid tip amount (amount: ' + tokens + ')');
-      console.log('⚠️  Full object: ' + JSON.stringify(obj));
-      return;
-    }
-    console.log('💰 VALID TIP: ' + username + ' tipped ' + tokens + ' tokens');
-    latestEvents.push({ type: 'tip', username: username, tokens: tokens, message: tip.message || obj.message || '', isAnon: tip.isanon || obj.isanon || false, timestamp: Date.now() });
-  } else {
-    const username = obj.user?.username || 'Unknown';
-    if (method === 'userEnter') {
-      console.log('\\x1b[32m📦 Event: userEnter "' + username + '"\\x1b[0m');
-      log('📦 Event: userEnter "' + username + '"');
-    } else if (method === 'userLeave') {
-      console.log('\\x1b[31m📦 Event: userLeave "' + username + '"\\x1b[0m');
-      log('📦 Event: userLeave "' + username + '"');
-    } else {
-      console.log('ℹ️  Ignored: ' + method + ' event (not a tip)');
-    }
-  }
-}
-
-function fetchEvents(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      if (res.statusCode !== 200) return reject(new Error('HTTP ' + res.statusCode));
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (err) {
-          reject(new Error('Invalid JSON response'));
-        }
-      });
-    }).on('error', reject);
-  });
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-process.on('SIGINT', () => {
-  console.log('\\n\\n👋 Shutting down server...');
-  server.close();
-  process.exit(0);
-});
-`;
-
-  return serverCode;
-}
-
 // ═══════════════════════════════════════════════════════════
-//  UNIFIED SERVER (CHATURBATE + JOYSTICK.TV)
+//  UNIFIED SERVER (CHATURBATE + JOYSTICK.TV + STRIPCHAT)
 // ═══════════════════════════════════════════════════════════
 
 let platformsEnabled = {
   chaturbate: false,
-  joystick: false
+  joystick: false,
+  stripchat: false
 };
 
-let verboseLogging = false;
+let selectedLogLevel = 1;
+
+function setLogLevel(level) {
+  selectedLogLevel = level;
+  [1, 2, 3].forEach(n => {
+    const btn = document.getElementById('log-level-btn-' + n);
+    if (n === level) {
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.background = 'rgba(255,78,203,0.05)';
+    } else {
+      btn.style.borderColor = 'var(--border)';
+      btn.style.background = 'transparent';
+    }
+  });
+  localStorage.setItem('logLevel', level);
+}
 
 function toggleSection(id) {
   const content = document.getElementById(id + '-content');
@@ -3019,25 +3014,18 @@ function toggleSection(id) {
 }
 
 function initSectionStates() {
-  ['general-settings', 'scene-switch-menu'].forEach(id => {
+  [
+    'general-settings', 'scene-switch-menu',
+    'theme-background', 'theme-colors', 'theme-layout',
+    'theme-position', 'theme-animation', 'theme-typography',
+    'theme-menu-display', 'theme-ticker'
+  ].forEach(id => {
     const saved = localStorage.getItem('section-' + id);
     if (saved === 'collapsed') {
       document.getElementById(id + '-content').classList.add('collapsed');
       document.getElementById(id + '-toggle').style.transform = 'rotate(-90deg)';
     }
   });
-}
-
-function toggleVerboseLogging() {
-  verboseLogging = !verboseLogging;
-  const dot = document.getElementById('verbose-dot');
-  const toggle = document.getElementById('verbose-toggle');
-  const label = document.getElementById('verbose-label');
-  dot.style.opacity = verboseLogging ? '1' : '0';
-  toggle.style.borderColor = verboseLogging ? 'var(--accent)' : 'var(--border)';
-  toggle.style.background = verboseLogging ? 'rgba(255, 78, 203, 0.05)' : 'transparent';
-  label.textContent = verboseLogging ? 'On' : 'Off';
-  localStorage.setItem('verboseLogging', verboseLogging);
 }
 
 function togglePlatform(platform) {
@@ -3070,7 +3058,7 @@ function updateSaveButton() {
   const saveBtn = document.getElementById('save-server-btn');
   const warning = document.getElementById('platform-warning');
   
-  const anyEnabled = platformsEnabled.chaturbate || platformsEnabled.joystick;
+  const anyEnabled = platformsEnabled.chaturbate || platformsEnabled.joystick || platformsEnabled.stripchat;
   
   if (!anyEnabled) {
     saveBtn.disabled = true;
@@ -3099,7 +3087,12 @@ function updateSaveButton() {
     const clientSecret = document.getElementById('joystick-client-secret').value.trim();
     if (!clientId || !clientSecret) missingCredentials = true;
   }
-  
+
+  if (platformsEnabled.stripchat) {
+    const username = document.getElementById('stripchat-username').value.trim();
+    if (!username) missingCredentials = true;
+  }
+
   if (missingCredentials) {
     saveBtn.disabled = true;
     warning.style.display = 'block';
@@ -3113,6 +3106,7 @@ function updateSaveButton() {
 function saveUnifiedServerConfig() {
   let cbUsername = '', cbToken = '';
   let joystickClientId = '', joystickClientSecret = '';
+  let stripchatUsername = '';
   
   // Get Chaturbate credentials if enabled
   if (platformsEnabled.chaturbate) {
@@ -3137,7 +3131,12 @@ function saveUnifiedServerConfig() {
     joystickClientId = document.getElementById('joystick-client-id').value.trim();
     joystickClientSecret = document.getElementById('joystick-client-secret').value.trim();
   }
-  
+
+  // Get StripChat credentials if enabled
+  if (platformsEnabled.stripchat) {
+    stripchatUsername = document.getElementById('stripchat-username').value.trim();
+  }
+
   // Generate unified server file
   const serverContent = generateUnifiedServerFile(
     platformsEnabled.chaturbate,
@@ -3146,7 +3145,9 @@ function saveUnifiedServerConfig() {
     platformsEnabled.joystick,
     joystickClientId,
     joystickClientSecret,
-    verboseLogging
+    platformsEnabled.stripchat,
+    stripchatUsername,
+    selectedLogLevel
   );
   
   // Download the file
@@ -3175,16 +3176,21 @@ function saveUnifiedServerConfig() {
     localStorage.setItem('joystickClientId', joystickClientId);
     localStorage.setItem('joystickClientSecret', joystickClientSecret);
   }
-  
-  showNotification('✅ config.json downloaded! Place it in the same folder as oss_server.js' + 
-    (platformsEnabled.joystick ? ', then double click START_SERVER' : ''));
+
+  if (platformsEnabled.stripchat) {
+    localStorage.setItem('stripchatUsername', stripchatUsername);
+  }
+
+  showNotification('✅ config.json downloaded! Place it in the same folder as oss_server.js' +
+    ((platformsEnabled.joystick || platformsEnabled.stripchat) ? ', then double click START_SERVER' : ''));
 }
 
-function generateUnifiedServerFile(enableCb, cbUsername, cbToken, enableJoystick, joystickClientId, joystickClientSecret, verboseLog) {
+function generateUnifiedServerFile(enableCb, cbUsername, cbToken, enableJoystick, joystickClientId, joystickClientSecret, enableStripchat, stripchatUsername, logLevel) {
   const cbUsernameVal = enableCb ? cbUsername : 'your_username_here';
   const cbTokenVal = enableCb ? cbToken : 'your_token_here';
   const joystickClientIdVal = enableJoystick ? joystickClientId : 'your_client_id_here';
   const joystickClientSecretVal = enableJoystick ? joystickClientSecret : 'your_client_secret_here';
+  const stripchatUsernameVal = enableStripchat ? stripchatUsername : 'your_username_here';
 
   // Generate JSON configuration file
   const config = {
@@ -3198,11 +3204,15 @@ function generateUnifiedServerFile(enableCb, cbUsername, cbToken, enableJoystick
         enabled: enableJoystick,
         clientId: joystickClientIdVal,
         clientSecret: joystickClientSecretVal
+      },
+      stripchat: {
+        enabled: enableStripchat,
+        username: stripchatUsernameVal
       }
     },
     server: {
       port: 3000,
-      verbose_logging: verboseLog ?? false
+      log_level: logLevel || 1
     }
   };
 
@@ -3228,6 +3238,15 @@ function setupPlatformListeners() {
       el.addEventListener('change', updateSaveButton);
     }
   });
+
+  const stripchatInputs = ['stripchat-username'];
+  stripchatInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', updateSaveButton);
+      el.addEventListener('change', updateSaveButton);
+    }
+  });
   
   // Also listen to config method radio changes
   const radios = document.querySelectorAll('input[name="config-method"]');
@@ -3240,7 +3259,7 @@ function loadPlatformSettings() {
   // Load saved platform selections into a local var — do NOT overwrite platformsEnabled yet,
   // since togglePlatform flips from false→true, so we need it to start at false.
   const saved = localStorage.getItem('platformsEnabled');
-  const savedPlatforms = saved ? JSON.parse(saved) : { chaturbate: false, joystick: false };
+  const savedPlatforms = saved ? JSON.parse(saved) : { chaturbate: false, joystick: false, stripchat: false };
 
   // Load Chaturbate credentials
   const cbUrl = localStorage.getItem('cbUrl');
@@ -3263,12 +3282,17 @@ function loadPlatformSettings() {
   if (joystickClientId) document.getElementById('joystick-client-id').value = joystickClientId;
   if (joystickClientSecret) document.getElementById('joystick-client-secret').value = joystickClientSecret;
 
+  // Load StripChat credentials
+  const stripchatUsername = localStorage.getItem('stripchatUsername');
+  if (stripchatUsername) document.getElementById('stripchat-username').value = stripchatUsername;
+
   // Apply saved platform states — platformsEnabled starts all-false, so togglePlatform correctly enables them
   if (savedPlatforms.chaturbate) togglePlatform('chaturbate');
   if (savedPlatforms.joystick) togglePlatform('joystick');
+  if (savedPlatforms.stripchat) togglePlatform('stripchat');
 
-  // Restore verbose logging toggle — verboseLogging starts false, so calling toggle once enables it
-  if (localStorage.getItem('verboseLogging') === 'true') toggleVerboseLogging();
+  const savedLogLevel = parseInt(localStorage.getItem('logLevel')) || 1;
+  setLogLevel(savedLogLevel);
 
   updateSaveButton();
 }
@@ -3292,7 +3316,7 @@ async function applyLive() {
     const configRes = await fetch('http://localhost:3000/update-config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config)
+      body: JSON.stringify({ ...config, menuAutoStart: 'now' })
     });
     
     if (themeRes.ok && configRes.ok) {
@@ -3370,6 +3394,44 @@ async function testAlert() {
     });
     if (res.ok) {
       showNotification('✓ Test tip sent to OBS!');
+    } else {
+      throw new Error('Server error');
+    }
+  } catch (err) {
+    showNotification('Error: Make sure oss_server.js is running!', true);
+  }
+}
+
+async function previewInOBS() {
+  const theme = getCurrentTheme();
+  const config = getConfig();
+  const payload = {
+    ...theme,
+    __menuConfig: {
+      MENU_DISPLAY_ENABLED: config.MENU_DISPLAY_ENABLED,
+      MENU_DISPLAY_POSITION: config.MENU_DISPLAY_POSITION,
+      MENU_DISPLAY_SCALE: config.MENU_DISPLAY_SCALE,
+      MENU_DISPLAY_ANIMATION: config.MENU_DISPLAY_ANIMATION,
+      MENU_DISPLAY_BG_OPACITY: config.MENU_DISPLAY_BG_OPACITY,
+      MENU_DISPLAY_DURATION_SECONDS: config.MENU_DISPLAY_DURATION_SECONDS,
+      MENU_DISPLAY_INTERVAL_SECONDS: config.MENU_DISPLAY_INTERVAL_SECONDS,
+      SCENE_TIPS: config.SCENE_TIPS,
+    },
+    __tickerConfig: {
+      TICKER_POSITION: config.TICKER_POSITION,
+      TICKER_SPEED: config.TICKER_SPEED,
+      TICKER_SCALE: config.TICKER_SCALE,
+      TICKER_SEPARATOR: config.TICKER_SEPARATOR,
+    },
+  };
+  try {
+    const res = await fetch('http://localhost:3000/preview-theme', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      showNotification('👁 Previewing in OBS for 10 seconds...');
     } else {
       throw new Error('Server error');
     }
@@ -3480,9 +3542,9 @@ function scalePreview() {
   const outer = document.getElementById('preview-outer');
   const container = document.getElementById('preview-container');
   if (!outer || !container) return;
-  const scale = outer.offsetWidth / 960;
+  const scale = outer.offsetWidth / 1920;
   container.style.transform = `scale(${scale})`;
-  outer.style.height = Math.round(540 * scale) + 'px';
+  outer.style.height = Math.round(1080 * scale) + 'px';
 }
 
 window.addEventListener('resize', scalePreview);

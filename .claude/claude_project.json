@@ -1,0 +1,49 @@
+{
+  "description" : "Project tracked by Claude Checkpoints",
+  "instructions" : [
+    "IMPORTANT: Use Claude Checkpoints MCP tools for tracking changes:",
+    "1. Call start_task('task name') BEFORE starting any task (max 30 chars)",
+    "2. Call complete_task('task name', 'summary') AFTER completing the task",
+    "3. This creates automatic checkpoints with clear task descriptions",
+    "Example: start_task('Fix login bug') ... do work ... complete_task('Fix login bug', 'Fixed SQL injection vulnerability')"
+  ],
+  "settings" : {
+    "commit_message_template" : "[Claude Checkpoints] {{summary}}",
+    "track_changes" : true,
+    "create_checkpoints" : true,
+    "auto_commit" : true
+  },
+  "hooks" : {
+    "post_task" : "complete_task",
+    "pre_task" : "start_task"
+  },
+  "mcp" : {
+    "port" : 8765,
+    "enabled" : true,
+    "usage" : [
+      "start_task: Call BEFORE starting work (max 30 chars)",
+      "complete_task: Call AFTER finishing work to create checkpoint",
+      "get_diff_summary: View current changes",
+      "create_checkpoint: Manual checkpoint with custom message"
+    ],
+    "tools" : [
+      "start_task",
+      "complete_task",
+      "get_diff_summary",
+      "create_checkpoint",
+      "list_checkpoints",
+      "restore_checkpoint",
+      "generate_commit_message"
+    ],
+    "server" : "claude-checkpoints"
+  },
+  "integrations" : {
+    "git" : {
+      "commit_prefix" : "[Claude Checkpoints]",
+      "auto_commit_on_checkpoint" : true,
+      "auto_stage" : true
+    }
+  },
+  "version" : "1.0.0",
+  "name" : "OBS Scene Switcher"
+}
