@@ -51,7 +51,7 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
 
 - [Node.js](https://nodejs.org/) (v14 or higher)
 - [OBS Studio](https://obsproject.com/) (latest version)
-- Active streamer account on [Chaturbate](https://chaturbate.com/) and/or [Joystick.tv](https://joystick.tv/) and/or Stripchat (https://stripchat.com/)
+- Active streamer account on [Chaturbate](https://chaturbate.com/) and/or [Joystick.tv](https://joystick.tv/) and/or [Stripchat](https://stripchat.com/)
 
 ### **Installation**
 
@@ -62,7 +62,7 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
 1. **Configure your platforms:**
    - Open `oss_editor.html` in your browser
    - Go to "Server Setup" tab
-   - Select platform(s) (Chaturbate and/or Joystick.tv and/or Stripchat)
+   - Select platform(s) - (Chaturbate and/or Joystick.tv and/or Stripchat)
    - Follow the guide(s)
    - Click "Download config.json"
    - Place `config.json` you just downloaded in the project folder. NEVER SHARE your config.json file. If others get that info, you need to delete the API URL for Chaturbate and delete the bot in Joystick.tv and make new ones.  
