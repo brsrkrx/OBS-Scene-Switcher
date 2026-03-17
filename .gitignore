@@ -4,6 +4,7 @@ config.json
 last_applied_config.json
 CLAUDE.md
 oss_server_debug.log
+Old files/
 
 # Logs
 logs
