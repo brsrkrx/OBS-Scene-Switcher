@@ -1743,14 +1743,12 @@ function updateMenuIntervalDisplay() {
   document.getElementById('menu-interval-minutes').textContent = m + 'm ' + s + 's';
 }
 
-function setupConfigChangeDetection() {
+function markNeedsApply() {
   const applyButton = document.querySelector('.btn-primary[onclick="applyLive()"]');
-  if (!applyButton) return;
-  
-  // Mark button as needing apply
-  function markNeedsApply() {
-    applyButton.classList.add('needs-apply');
-  }
+  if (applyButton) applyButton.classList.add('needs-apply');
+}
+
+function setupConfigChangeDetection() {
   
   // Listen to all config inputs
   const configInputs = [
