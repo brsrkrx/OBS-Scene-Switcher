@@ -437,7 +437,7 @@ function applyTheme(theme) {
   // Background opacity - applied to .alert-bg element
   if (theme.bgOpacity !== undefined) {
     root.style.setProperty('--bg-opacity', theme.bgOpacity);
-    
+
     // Hide/show background element based on opacity
     const alertBg = document.querySelector('#alert-box .alert-bg');
     if (alertBg) {
@@ -447,6 +447,7 @@ function applyTheme(theme) {
         alertBg.style.display = 'block';
       }
     }
+
   }
   
   // Progress bar settings
@@ -683,6 +684,8 @@ function updateTicker() {
   inner.style.animationDuration = (CONFIG.TICKER_SPEED || 30) + 's';
   el.className = 'ticker-' + CONFIG.TICKER_POSITION;
   el.style.zoom = CONFIG.TICKER_SCALE || 1;
+  const tickerBg = el.querySelector('.ticker-bg');
+  if (tickerBg) tickerBg.style.opacity = CONFIG.MENU_DISPLAY_BG_OPACITY !== undefined ? CONFIG.MENU_DISPLAY_BG_OPACITY : 1;
   const tickerH = 28 * (CONFIG.TICKER_SCALE || 1);
   const barBottom = CONFIG.TICKER_POSITION === 'bottom' ? `${tickerH}px` : '0px';
   document.documentElement.style.setProperty('--progress-bar-bottom', barBottom);
