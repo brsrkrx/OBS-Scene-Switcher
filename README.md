@@ -12,8 +12,8 @@ Transform your cam shows with dynamic, tip-activated scene transitions! Set diff
 
 ## 📸 Screenshots
 
-<a href="screenshots/editor-config.png"><img src="screenshots/editor-config.png" width="400" alt="Configuration editor"></a>
-<a href="screenshots/editor-theme.png"><img src="screenshots/editor-theme.png" width="400" alt="Theme editor"></a>
+<a href="Supplement files/screenshots/editor-config.png"><img src="Supplement files/screenshots/editor-config.png" width="400" alt="Configuration editor"></a>
+<a href="Supplement files/screenshots/editor-theme.png"><img src="Supplement files/screenshots/editor-theme.png" width="400" alt="Theme editor"></a>
 
 ---
 
@@ -115,7 +115,7 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
 
 ### **Complete Guide:**
 
-- 📘 [Configuration Guide](CONFIG_GUIDE.md) - Everything about config.json
+- 📘 [Configuration Guide](Supplement%20files/CONFIG_GUIDE.md) - Everything about config.json
 
 ### **Platform Setup:**
 
