@@ -338,7 +338,7 @@ input[type="range"]::-moz-range-thumb {
 .btn-success:hover { background: #1f9045; border-color: #1f9045; }
 
 .btn-small {
-  padding: 6px 12px; font-size: 12px;
+  padding: 6px 12px; font-size: 12px; border-radius: 4px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -497,7 +497,7 @@ input[type="range"]::-moz-range-thumb {
   display: flex; justify-content: space-between;
   align-items: center; padding: 8px 10px;
   border-radius: 4px; margin-bottom: 6px;
-  background: var(--surface);
+  background: var(--surface); cursor: pointer;
 }
 
 .saved-theme-item:hover {
@@ -1034,7 +1034,7 @@ input[type="range"]::-moz-range-thumb {
       <span>OBS Scene Name</span>
       <span>Return (sec)<br>0 = No return</span>
       <span>Switch Delay (s)</span>
-      <span>Show Overlay?</span>
+      <span>Show Alert?</span>
       <span>Active?</span>
       <span>Delete</span>
     </div>
@@ -1060,7 +1060,8 @@ input[type="range"]::-moz-range-thumb {
   <div style="max-width: 900px; margin: 0 auto; padding: 40px; overflow-y: auto; max-height: calc(100vh - 125px);">
     
     <div class="section-title">Platform Configuration</div>
-    
+
+    <div>
     <div class="config-section">
       <h3 style="margin-bottom: 15px;">Select Platforms</h3>
       <p style="margin-bottom: 20px; line-height: 1.6; color: var(--text-dim);">
@@ -1099,8 +1100,10 @@ input[type="range"]::-moz-range-thumb {
         </div>
       </div>
     </div>
-    
-    <div class="section-title">Logging</div>
+    </div>
+
+    <div class="section-title section-title-collapsible" onclick="toggleSection('server-logging')">Logging <span class="section-toggle" id="server-logging-toggle">▼</span></div>
+    <div class="section-content" id="server-logging-content">
     <div class="config-section">
       <strong>Default Log Level</strong>
       <div style="color: var(--text-dim); font-size: 13px; margin-top: 4px; margin-bottom: 15px; line-height: 1.5;">
@@ -1121,11 +1124,12 @@ input[type="range"]::-moz-range-thumb {
         </div>
       </div>
     </div>
+    </div>
 
     <!-- Chaturbate Configuration -->
     <div id="chaturbate-config-section" style="display: none;">
-      <div class="section-title">Chaturbate Configuration</div>
-      
+      <div class="section-title section-title-collapsible" onclick="toggleSection('server-chaturbate')">Chaturbate Configuration <span class="section-toggle" id="server-chaturbate-toggle">▼</span></div>
+      <div class="section-content" id="server-chaturbate-content">
       <div class="config-section">
        <h3 style="margin-bottom: 15px;">Step 1: Get Your API Token</h3>
         <p style="margin-bottom: 15px; line-height: 1.6;">
@@ -1178,12 +1182,13 @@ input[type="range"]::-moz-range-thumb {
           ⚠️ <strong>Security Note:</strong> Keep this URL/token private! Anyone with it can monitor your room events (How many tokens you get, who tip you etc.).
         </div>
       </div>
+      </div>
     </div>
-    
+
     <!-- Joystick.tv Configuration -->
     <div id="joystick-config-section" style="display: none;">
-      <div class="section-title">Joystick.tv Configuration</div>
-      
+      <div class="section-title section-title-collapsible" onclick="toggleSection('server-joystick')">Joystick.tv Configuration <span class="section-toggle" id="server-joystick-toggle">▼</span></div>
+      <div class="section-content" id="server-joystick-content">
       <div class="config-section">
         <h3 style="margin-bottom: 15px;">General information</h3>
         <p style="margin-bottom: 10px; line-height: 1.6;">
@@ -1268,12 +1273,13 @@ input[type="range"]::-moz-range-thumb {
           💡 The OAuth Redirect URL is required by Joystick.tv but won't be used by our bot. We connect directly using Client ID + Secret.
         </div>
       </div>
+      </div>
     </div>
-    
+
     <!-- StripChat Configuration -->
     <div id="stripchat-config-section" style="display: none;">
-      <div class="section-title">StripChat Configuration</div>
-
+      <div class="section-title section-title-collapsible" onclick="toggleSection('server-stripchat')">StripChat Configuration <span class="section-toggle" id="server-stripchat-toggle">▼</span></div>
+      <div class="section-content" id="server-stripchat-content">
       <div class="config-section">
         <h3 style="margin-bottom: 15px;">Setup</h3>
         <p style="margin-bottom: 15px; line-height: 1.6;">
@@ -1314,6 +1320,7 @@ input[type="range"]::-moz-range-thumb {
           </p>
         </div>
       </div>
+      </div>
     </div>
 
     <!-- Save Button -->
@@ -1327,6 +1334,7 @@ input[type="range"]::-moz-range-thumb {
     </div>
     
     <div class="section-title">Instructions</div>
+    <div>
     <div class="config-section">
       <ol style="line-height: 1.8; padding-left: 20px;">
         <li>Select which platform(s) to use above</li>
@@ -1342,7 +1350,8 @@ input[type="range"]::-moz-range-thumb {
         💡 The server automatically reads config.json on startup. For Joystick.tv users, the WebSocket library installation is fully automated - the server script handles it for you. Remember not to share the config.json file with anyone!
       </div>
     </div>
-    
+    </div>
+
   </div>
 </div>
 
@@ -1377,7 +1386,7 @@ input[type="range"]::-moz-range-thumb {
       <li><strong>Per-scene overlay toggle</strong> - show/hide overlay for specific scenes</li>
       <li><strong>Global overlay toggle</strong> - for non-scene switching tips</li>
       <li><strong>Custom test tip editor</strong> - test with any username, amount, and message</li>
-      <li><strong>Scene Change Queue</strong> - Scene switches queue up automatically, no overlaps</li>
+      <li><strong>Scrolling ticker with menu items</strong> - Option for top and bottom of screen</li>
     </ul>
     
     <h3 style="margin-top: 30px; margin-bottom: 15px;">Quick Start</h3>
@@ -1396,7 +1405,7 @@ input[type="range"]::-moz-range-thumb {
     <ul style="line-height: 1.8; padding-left: 20px;">
       <li><strong>Chaturbate</strong> - Connects via Events API ✓</li>
       <li><strong>Joystick.tv</strong> - Connects through WebSocket API ✓</li>
-      <li><strong>StripChat</strong> - Connects through WebSocket API ✓</li>
+      <li><strong>StripChat</strong> - Polls the public chat API via HTTP ✓</li>
     </ul>
     
     <h3 style="margin-top: 30px; margin-bottom: 15px;">Tips</h3>
@@ -1405,7 +1414,7 @@ input[type="range"]::-moz-range-thumb {
       <li>You don't need to have the editor (this page) open all the time, only when making changes</li>
       <li>The overlay toggle controls which scenes show an overlay</li>
       <li><strong>Test Editor</strong> - Click ▶ Send Test Tip to customize test data</li>
-      <li><strong>Resizer</strong> - Drag divider to adjust size, the preview auto-scales</li>
+      <li><strong>Resizer</strong> - Drag divider in theme tab to adjust size, the preview auto-scales</li>
       <li><strong>Progress Bar</strong> - Empties as time runs out, customizable thickness</li>
       <li><strong>Scene Names</strong> - Must match scene names in OBS exactly (capitals matter!). Can be imported from OBS when all is connected</li>
     </ul>
@@ -1935,7 +1944,7 @@ function loadTheme(key) {
   document.getElementById('position-offset').value = theme.positionOffset;
   document.getElementById('animation-type').value = theme.animationType;
   document.getElementById('slide-duration').value = theme.slideDuration;
-  document.getElementById('shimmer').value = theme.shimmer.toString();
+  document.getElementById('shimmer').value = (theme.shimmer ?? false).toString();
   
   document.getElementById('font-size-label').value = theme.fontSizeLabel;
   document.getElementById('font-size-username').value = theme.fontSizeUsername;
@@ -2000,20 +2009,16 @@ function renderSavedThemes() {
     leftDiv.appendChild(colorsDiv);
     leftDiv.appendChild(nameDiv);
 
+    item.addEventListener('click', () => loadTheme(key));
+
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'saved-theme-actions';
-
-    const loadBtn = document.createElement('button');
-    loadBtn.className = 'btn btn-small';
-    loadBtn.textContent = 'Load';
-    loadBtn.addEventListener('click', () => loadTheme(key));
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'btn btn-small btn-danger';
     deleteBtn.textContent = 'Delete';
-    deleteBtn.addEventListener('click', () => deleteTheme(key));
+    deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteTheme(key); });
 
-    actionsDiv.appendChild(loadBtn);
     actionsDiv.appendChild(deleteBtn);
 
     item.appendChild(leftDiv);
@@ -2085,11 +2090,11 @@ function importTheme() {
 }
 
 const THEME_ALLOWED_KEYS = new Set([
-  'name', 'accent', 'gold', 'teal', 'background', 'bgColor1', 'bgColor2',
+  'name', 'accent', 'gold', 'teal', 'background', 'bgColor1', 'bgColor2', 'bgAngle',
   'radius', 'borderWidth', 'boxWidth', 'opacity', 'topBarHeight', 'bgOpacity',
   'fontSizeLabel', 'fontSizeUsername', 'fontSizeTokens', 'fontSizeMessage',
-  'displayFont', 'bodyFont', 'positionLeft', 'positionRight', 'positionTop', 'positionBottom',
-  'animationType', 'animationDuration', 'animationEase'
+  'displayFont', 'bodyFont', 'position', 'positionOffset',
+  'animationType', 'slideDuration', 'shimmer', 'progressBarEnabled', 'progressBarHeight'
 ]);
 
 function sanitizeTheme(raw) {
@@ -2099,7 +2104,7 @@ function sanitizeTheme(raw) {
     if (key in raw) {
       const val = raw[key];
       // Only allow string or number values, no nested objects
-      if (typeof val === 'string' || typeof val === 'number') {
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
         clean[key] = typeof val === 'string' ? val.slice(0, 200) : val;
       }
     }
@@ -3018,7 +3023,9 @@ function initSectionStates() {
     'general-settings', 'scene-switch-menu',
     'theme-background', 'theme-colors', 'theme-layout',
     'theme-position', 'theme-animation', 'theme-typography',
-    'theme-menu-display', 'theme-ticker'
+    'theme-menu-display', 'theme-ticker',
+    'server-logging',
+    'server-chaturbate', 'server-joystick', 'server-stripchat'
   ].forEach(id => {
     const saved = localStorage.getItem('section-' + id);
     if (saved === 'collapsed') {
