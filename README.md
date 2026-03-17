@@ -1,8 +1,8 @@
 # 🎥 OBS Scene Switcher
 
-**Automatic OBS scene switching triggered by tips from Chaturbate and Joystick.tv**
+**Automatic OBS scene switching triggered by tips from Joystick.tv, Chaturbate.com and Stripchat.com**
 
-Transform your cam shows with dynamic, tip-activated scene transitions! Set different OBS scenes for different tip amounts and let your viewers control what they see.
+Transform your cam shows with dynamic, tip-activated scene transitions! Set different OBS scenes for different tip amounts and let your viewers control the show — while you earn more!
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
