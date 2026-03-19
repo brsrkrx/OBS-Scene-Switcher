@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-03-19
+
+### Added
+- Auto-install of Node.js on Windows when starting the server for the first time, matching the existing Mac behavior
+
+### Fixed
+- Ticker transparency rendering issue
+- Apply to OBS button now correctly glows when activating/deactivating triggers and when reordering them
+
+### Changed
+- Supplemental files (CHANGELOG, CONFIG_GUIDE, config.example.json, release script, screenshots) moved into a `Supplement files/` folder for a cleaner project root
+- `last_applied_config.json` removed from git tracking
+
+### Documentation
+- README updated with more information and clearer setup instructions
+
+---
+
 ## [1.1.0] - 2026-03-14
 
 ### Added
