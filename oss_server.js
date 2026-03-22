@@ -12,7 +12,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 const readline = require('readline');
 
-const CURRENT_VERSION = '1.1.0';
+const CURRENT_VERSION = '1.1.2';
 const GITHUB_REPO = 'brsrkrx/OBS-Scene-Switcher';
 
 // ── Logging Setup ───────────────────────────────────────────
