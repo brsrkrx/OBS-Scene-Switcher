@@ -1,7 +1,7 @@
 // ============================================================
 // OBS Scene Switcher Server
 // ============================================================
-// Supports Chaturbate, Joystick.tv, and StripChat platforms
+// Supports Chaturbate, Joystick.tv, StripChat, and Twitch platforms
 // Enable/disable platforms in configuration
 // ============================================================
 
@@ -18,10 +18,27 @@ const GITHUB_REPO = 'brsrkrx/OBS-Scene-Switcher';
 // ── Logging Setup ───────────────────────────────────────────
 const logFile = path.join(__dirname, 'oss_server_debug.log');
 
+const C = {
+  reset:  '\x1b[0m',
+  cb:     '\x1b[38;5;208m',  // orange  — Chaturbate
+  js:     '\x1b[36m',        // teal    — Joystick.tv
+  sc:     '\x1b[38;5;88m',   // maroon  — StripChat
+  tw:     '\x1b[38;5;99m',   // purple  — Twitch
+};
+
+function colorize(message) {
+  if (message.includes('\x1b[')) return message; // already colored (e.g. enter/leave)
+  if (message.includes('[CHATURBATE]')) return C.cb + message + C.reset;
+  if (message.includes('[JOYSTICK]'))   return C.js + message + C.reset;
+  if (message.includes('[STRIPCHAT]'))  return C.sc + message + C.reset;
+  if (message.includes('[TWITCH]'))     return C.tw + message + C.reset;
+  return message;
+}
+
 function log(message) {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}`;
-  console.log(message);
+  console.log(colorize(message));
   try { fs.appendFileSync(logFile, logMessage + '\n'); } catch (err) {}
 }
 
@@ -76,6 +93,11 @@ try {
     JOYSTICK_CLIENT_SECRET: config.platforms.joystick.clientSecret,
     ENABLE_STRIPCHAT: config.platforms.stripchat?.enabled ?? false,
     SC_USERNAME: config.platforms.stripchat?.username || '',
+    ENABLE_TWITCH: config.platforms.twitch?.enabled ?? false,
+    TWITCH_CLIENT_ID: config.platforms.twitch?.clientId || '',
+    TWITCH_ACCESS_TOKEN: config.platforms.twitch?.accessToken || '',
+    TWITCH_CHANNEL: config.platforms.twitch?.channel || '',
+    TWITCH_CLI_TEST: config.platforms.twitch?.cliTest ?? false,
     PORT: config.server.port || 3000,
     LOG_LEVEL_DEFAULT: Math.min(3, Math.max(1, parseInt(config.server.log_level) || 1))
   };
@@ -208,8 +230,8 @@ async function downloadAndUpdate(latestVersion) {
 
 // ── Check and Auto-Install WebSocket Library ───────────────
 async function checkAndInstallWebSocket() {
-  if (!CONFIG.ENABLE_JOYSTICK) {
-    return; // Only needed for Joystick WebSocket
+  if (!CONFIG.ENABLE_JOYSTICK && !CONFIG.ENABLE_TWITCH) {
+    return; // Only needed for Joystick and Twitch WebSocket
   }
   
   // Check if ws module exists
@@ -220,7 +242,7 @@ async function checkAndInstallWebSocket() {
   } catch (err) {
     // ws not found - offer to install
     console.log('\n⚠️  WebSocket library not found!');
-    console.log('Joystick.tv support requires the "ws" library.');
+    console.log('Joystick.tv and Twitch support require the "ws" library.');
     console.log('');
     
     // Check if npm is available
@@ -272,9 +294,10 @@ async function checkAndInstallWebSocket() {
           }
         } else {
           console.log('\n⚠️  Skipping installation.');
-          console.log('Joystick.tv support will be disabled.');
-          console.log('To enable it later, install ws and restart the server.\n');
+          console.log('Joystick.tv and Twitch support will be disabled.');
+          console.log('To enable them later, install ws and restart the server.\n');
           CONFIG.ENABLE_JOYSTICK = false; // Disable Joystick since ws not available
+          CONFIG.ENABLE_TWITCH = false;   // Disable Twitch since ws not available
           resolve();
         }
       });
@@ -532,7 +555,7 @@ function sendEventsToClients() {
     vlog(`✓ SERVER: Events sent and cleared (${latestEvents.length} events)`);
     latestEvents = [];
   } else if (latestEvents.length > 0) {
-    log(`⚠️ SERVER: Have ${latestEvents.length} events but NO connected clients`);
+    log(`⚠️ SERVER: Have ${latestEvents.length} events but NO overlay to connect to!`);
   }
 }
 
@@ -630,9 +653,10 @@ async function startServer() {
   log('   Chaturbate: ' + (CONFIG.ENABLE_CHATURBATE ? '✅ ENABLED' : '⭕ DISABLED'));
   log('   Joystick.tv: ' + (CONFIG.ENABLE_JOYSTICK ? '✅ ENABLED' : '⭕ DISABLED'));
   log('   StripChat: ' + (CONFIG.ENABLE_STRIPCHAT ? '✅ ENABLED' : '⭕ DISABLED'));
+  log('   Twitch: ' + (CONFIG.ENABLE_TWITCH ? '✅ ENABLED' : '⭕ DISABLED'));
   log('');
 
-  if (!CONFIG.ENABLE_CHATURBATE && !CONFIG.ENABLE_JOYSTICK && !CONFIG.ENABLE_STRIPCHAT) {
+  if (!CONFIG.ENABLE_CHATURBATE && !CONFIG.ENABLE_JOYSTICK && !CONFIG.ENABLE_STRIPCHAT && !CONFIG.ENABLE_TWITCH) {
     log('❌ ERROR: No platforms enabled! Enable at least one platform in config.json');
     log('');
     process.exit(1);
@@ -664,7 +688,28 @@ async function startServer() {
       process.exit(1);
     }
   }
-  
+
+  if (CONFIG.ENABLE_TWITCH && !CONFIG.TWITCH_CLI_TEST) {
+    if (!CONFIG.TWITCH_CLIENT_ID || CONFIG.TWITCH_CLIENT_ID === 'your_client_id_here') {
+      log('❌ ERROR: Twitch is enabled but Client ID not configured');
+      log('   Please update config.json with your Twitch credentials');
+      log('');
+      process.exit(1);
+    }
+    if (!CONFIG.TWITCH_ACCESS_TOKEN || CONFIG.TWITCH_ACCESS_TOKEN === 'your_access_token_here') {
+      log('❌ ERROR: Twitch is enabled but Access Token not configured');
+      log('   Please update config.json with your Twitch credentials');
+      log('');
+      process.exit(1);
+    }
+    if (!CONFIG.TWITCH_CHANNEL || CONFIG.TWITCH_CHANNEL === 'your_channel_here') {
+      log('❌ ERROR: Twitch is enabled but Channel name not configured');
+      log('   Please update config.json with your Twitch credentials');
+      log('');
+      process.exit(1);
+    }
+  }
+
   // Start HTTP server
   server.listen(CONFIG.PORT, '127.0.0.1', () => {
     log('✅ HTTP Server running at http://localhost:' + CONFIG.PORT + ' (localhost only)');
@@ -694,6 +739,10 @@ async function startServer() {
 
     if (CONFIG.ENABLE_STRIPCHAT) {
       startStripchat();
+    }
+
+    if (CONFIG.ENABLE_TWITCH) {
+      startTwitch();
     }
   });
 }
@@ -817,9 +866,9 @@ function processChaturbateEvent(event) {
     const username = obj.user?.username || 'Unknown';
     
     if (method === 'userEnter') {
-      elog(`\x1b[32m📦 [CHATURBATE] Event: userEnter "${username}"\x1b[0m`);
+      elog(`\x1b[32m▶  [CHATURBATE] Event: userEnter "${username}"\x1b[0m`);
     } else if (method === 'userLeave') {
-      elog(`\x1b[31m📦 [CHATURBATE] Event: userLeave "${username}"\x1b[0m`);
+      elog(`\x1b[31m⬅  [CHATURBATE] Event: userLeave "${username}"\x1b[0m`);
     } else {
       vlog(`ℹ️  [CHATURBATE] NON-TIP EVENT IGNORED: ${method}`);
     }
@@ -959,9 +1008,9 @@ function processJoystickEvent(event) {
     const username = event.text || 'Unknown';
     
     if (presenceType === 'enter_stream') {
-      elog(`\x1b[32m📦 [JOYSTICK] Event: userEnter "${username}"\x1b[0m`);
+      elog(`\x1b[32m▶  JOYSTICK] Event: userEnter "${username}"\x1b[0m`);
     } else if (presenceType === 'leave_stream') {
-      elog(`\x1b[31m📦 [JOYSTICK] Event: userLeave "${username}"\x1b[0m`);
+      elog(`\x1b[31m⬅  [JOYSTICK] Event: userLeave "${username}"\x1b[0m`);
     }
   }
   
@@ -1185,6 +1234,284 @@ function fetchStripchatCamData() {
 }
 
 
+// ══════════════════════════════════════════════════════════════════
+//  TWITCH INTEGRATION (EventSub WebSocket — channel.cheer / Bits)
+// ══════════════════════════════════════════════════════════════════
+
+let twitchWs = null;
+let twitchReconnectTimeout = null;
+let twitchBroadcasterId = null;
+let twitchSessionId = null;
+
+async function startTwitch() {
+  log('🟣 [TWITCH] Starting Twitch EventSub integration for ' + CONFIG.TWITCH_CHANNEL + '...');
+
+  if (CONFIG.TWITCH_CLI_TEST) {
+    log('🟣 [TWITCH] CLI test mode — skipping broadcaster ID resolution');
+    twitchBroadcasterId = 'cli_test_broadcaster';
+  } else {
+    await resolveTwitchBroadcasterId();
+  }
+
+  if (!twitchBroadcasterId) {
+    log('❌ [TWITCH] Could not resolve broadcaster ID — Twitch integration disabled');
+    return;
+  }
+
+  try {
+    const WebSocket = require('ws');
+    connectToTwitch(WebSocket);
+  } catch (err) {
+    log('❌ [TWITCH] ERROR: ws module not found');
+    log('   Please install: npm install ws');
+    log('   Twitch support disabled');
+  }
+}
+
+function resolveTwitchBroadcasterId() {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.twitch.tv',
+      path: '/helix/users?login=' + encodeURIComponent(CONFIG.TWITCH_CHANNEL),
+      method: 'GET',
+      headers: {
+        'Client-Id': CONFIG.TWITCH_CLIENT_ID,
+        'Authorization': 'Bearer ' + CONFIG.TWITCH_ACCESS_TOKEN
+      }
+    };
+
+    https.get(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const user = parsed.data && parsed.data[0];
+          if (user && user.id) {
+            twitchBroadcasterId = user.id;
+            log('✅ [TWITCH] Broadcaster ID resolved: ' + twitchBroadcasterId);
+          } else {
+            log('❌ [TWITCH] Channel "' + CONFIG.TWITCH_CHANNEL + '" not found — check spelling and token validity');
+          }
+        } catch (e) {
+          log('❌ [TWITCH] Error parsing /helix/users response: ' + e.message);
+        }
+        resolve();
+      });
+    }).on('error', (err) => {
+      log('❌ [TWITCH] HTTP error resolving broadcaster ID: ' + err.message);
+      resolve();
+    });
+  });
+}
+
+function connectToTwitch(WebSocket) {
+  if (!CONFIG.ENABLE_TWITCH) return;
+
+  log('🟣 [TWITCH] Connecting to EventSub WebSocket...');
+
+  try {
+    const wsUrl = CONFIG.TWITCH_CLI_TEST ? 'ws://127.0.0.1:8080/ws' : 'wss://eventsub.wss.twitch.tv/ws';
+    twitchWs = new WebSocket(wsUrl);
+
+    twitchWs.on('open', () => {
+      log('✅ [TWITCH] WebSocket connected — waiting for session');
+    });
+
+    twitchWs.on('message', (data) => {
+      try {
+        const message = JSON.parse(data);
+        handleTwitchMessage(message, WebSocket);
+      } catch (err) {
+        log('❌ [TWITCH] Error parsing message: ' + err.message);
+      }
+    });
+
+    twitchWs.on('error', (error) => {
+      log('❌ [TWITCH] WebSocket error: ' + error.message);
+    });
+
+    twitchWs.on('close', () => {
+      log('⚠️  [TWITCH] Disconnected');
+      twitchSessionId = null;
+
+      if (CONFIG.ENABLE_TWITCH) {
+        twitchReconnectTimeout = setTimeout(() => {
+          log('🔄 [TWITCH] Attempting to reconnect...');
+          connectToTwitch(WebSocket);
+        }, 5000);
+      }
+    });
+
+  } catch (err) {
+    log('❌ [TWITCH] Failed to connect: ' + err.message);
+    if (CONFIG.ENABLE_TWITCH) {
+      twitchReconnectTimeout = setTimeout(() => connectToTwitch(WebSocket), 5000);
+    }
+  }
+}
+
+function handleTwitchMessage(message, WebSocket) {
+  const msgType = message.metadata && message.metadata.message_type;
+
+  if (msgType === 'session_welcome') {
+    twitchSessionId = message.payload.session.id;
+    log('✅ [TWITCH] Session established — subscribing to channel.cheer');
+    subscribeToTwitchEvents();
+    return;
+  }
+
+  if (msgType === 'session_keepalive') {
+    vlog('💓 [TWITCH] Keepalive received (connection alive)');
+    return;
+  }
+
+  if (msgType === 'session_reconnect') {
+    const reconnectUrl = message.payload.session.reconnect_url;
+    log('🔄 [TWITCH] Server requested reconnect');
+    try {
+      const newWs = new WebSocket(reconnectUrl);
+      newWs.on('open', () => {
+        log('✅ [TWITCH] Reconnect WebSocket open');
+        if (twitchWs) twitchWs.close();
+        twitchWs = newWs;
+      });
+      newWs.on('message', (data) => {
+        try { handleTwitchMessage(JSON.parse(data), WebSocket); }
+        catch (err) { log('❌ [TWITCH] Error parsing reconnect message: ' + err.message); }
+      });
+      newWs.on('error', (err) => {
+        log('❌ [TWITCH] Reconnect WebSocket error: ' + err.message);
+      });
+      newWs.on('close', () => {
+        twitchSessionId = null;
+        if (CONFIG.ENABLE_TWITCH) {
+          twitchReconnectTimeout = setTimeout(() => connectToTwitch(WebSocket), 5000);
+        }
+      });
+    } catch (err) {
+      log('❌ [TWITCH] Failed to connect to reconnect URL: ' + err.message);
+    }
+    return;
+  }
+
+  if (msgType === 'notification') {
+    handleTwitchNotification(message);
+    return;
+  }
+
+  if (msgType === 'revocation') {
+    log('⚠️  [TWITCH] Subscription revoked: ' + JSON.stringify(message.payload.subscription));
+    return;
+  }
+
+  vlog('ℹ️  [TWITCH] Unhandled message type: ' + msgType);
+}
+
+function subscribeToTwitchEvents() {
+  if (!twitchSessionId || !twitchBroadcasterId) {
+    log('❌ [TWITCH] Cannot subscribe — missing session ID or broadcaster ID');
+    return;
+  }
+
+  const body = JSON.stringify({
+    type: 'channel.cheer',
+    version: '1',
+    condition: { broadcaster_user_id: twitchBroadcasterId },
+    transport: {
+      method: 'websocket',
+      session_id: twitchSessionId
+    }
+  });
+
+  const useCliTest = CONFIG.TWITCH_CLI_TEST;
+  const options = {
+    hostname: useCliTest ? '127.0.0.1' : 'api.twitch.tv',
+    port: useCliTest ? 8080 : undefined,
+    path: '/helix/eventsub/subscriptions',
+    method: 'POST',
+    headers: useCliTest
+      ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+      : { 'Client-Id': CONFIG.TWITCH_CLIENT_ID, 'Authorization': 'Bearer ' + CONFIG.TWITCH_ACCESS_TOKEN, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+  };
+
+  const req = (useCliTest ? http : https).request(options, (res) => {
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => {
+      if (res.statusCode === 202) {
+        log('✅ [TWITCH] Subscribed to channel.cheer for ' + CONFIG.TWITCH_CHANNEL);
+      } else {
+        log('❌ [TWITCH] EventSub subscription failed (HTTP ' + res.statusCode + '): ' + data);
+        if (res.statusCode === 401) {
+          log('   Check that your access token is valid and has the bits:read scope');
+        }
+      }
+    });
+  });
+
+  req.on('error', (err) => {
+    log('❌ [TWITCH] EventSub subscription request error: ' + err.message);
+  });
+
+  req.write(body);
+  req.end();
+}
+
+function handleTwitchNotification(message) {
+  const subscriptionType = message.metadata && message.metadata.subscription_type;
+  const messageId = message.metadata && message.metadata.message_id;
+
+  vlog('📦 [TWITCH] RAW NOTIFICATION type: ' + subscriptionType);
+
+  if (subscriptionType === 'channel.cheer') {
+    processTwitchCheer(message.payload.event, messageId);
+  } else {
+    vlog('ℹ️  [TWITCH] Notification for unhandled type: ' + subscriptionType);
+  }
+}
+
+function processTwitchCheer(event, messageId) {
+  vlog('📦 [TWITCH] RAW CHEER EVENT: ' + JSON.stringify(event));
+
+  const eventId = messageId
+    ? 'twitch_' + messageId
+    : 'twitch_cheer_' + (event.broadcaster_user_id || '') + '_' + (event.user_id || 'anon') + '_' + (event.bits || 0) + '_' + Date.now();
+
+  if (processedEventIds.has(eventId)) {
+    vlog('⏭️  [TWITCH] SKIPPED - Already processed event ID: ' + eventId);
+    return;
+  }
+
+  processedEventIds.add(eventId);
+  vlog('✅ [TWITCH] NEW EVENT ACCEPTED - ID: ' + eventId);
+
+  const isAnon = event.is_anonymous || false;
+  const username = isAnon ? 'Anonymous' : (event.user_name || 'Anonymous');
+  const bits = event.bits || 0;
+  const message = event.message || '';
+
+  if (!bits || bits <= 0) {
+    log('⚠️  [TWITCH] INVALID CHEER - Amount is ' + bits + ' (must be > 0)');
+    return;
+  }
+
+  log('💰 [TWITCH] VALID CHEER: ' + username + ' cheered ' + bits + ' bits');
+
+  const safe = sanitizeTipData(username, bits, message);
+  latestEvents.push({
+    type: 'tip',
+    username: safe.username,
+    tokens: safe.tokens,
+    message: safe.message,
+    isAnon: isAnon,
+    timestamp: Date.now()
+  });
+
+  sendEventsToClients();
+  vlog('✓ [TWITCH] Cheer added to queue. Queue size: ' + latestEvents.length);
+}
+
 // ── Helper Functions ────────────────────────────────────────
 
 function fetchEvents(url) {
@@ -1227,7 +1554,15 @@ process.on('SIGINT', () => {
   if (stripchatPollTimeout) {
     clearTimeout(stripchatPollTimeout);
   }
-  
+
+  if (twitchWs) {
+    twitchWs.close();
+  }
+
+  if (twitchReconnectTimeout) {
+    clearTimeout(twitchReconnectTimeout);
+  }
+
   server.close();
   process.exit(0);
 });

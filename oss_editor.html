@@ -1065,10 +1065,10 @@ input[type="range"]::-moz-range-thumb {
     <div class="config-section">
       <h3 style="margin-bottom: 15px;">Select Platforms</h3>
       <p style="margin-bottom: 20px; line-height: 1.6; color: var(--text-dim);">
-        Enable one or more platforms. You can run Chaturbate, Joystick.tv, and StripChat simultaneously!
+        Enable one or more platforms. You can run Chaturbate, Joystick.tv, StripChat, and Twitch simultaneously!
       </p>
       
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px;">
         <div class="platform-toggle" onclick="togglePlatform('chaturbate')" id="chaturbate-toggle" style="cursor: pointer; padding: 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s;">
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
             <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; transition: all 0.2s;" id="chaturbate-check">
@@ -1076,9 +1076,9 @@ input[type="range"]::-moz-range-thumb {
             </div>
             <strong style="font-size: 16px;">Chaturbate</strong>
           </div>
-          <div style="color: var(--text-dim); font-size: 13px;">HTTP Polling • ~2s delay</div>
+          <div style="color: var(--text-dim); font-size: 13px;">HTTP Polling • ~1s delay</div>
         </div>
-        
+
         <div class="platform-toggle" onclick="togglePlatform('joystick')" id="joystick-toggle" style="cursor: pointer; padding: 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s;">
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
             <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; transition: all 0.2s;" id="joystick-check">
@@ -1096,7 +1096,17 @@ input[type="range"]::-moz-range-thumb {
             </div>
             <strong style="font-size: 16px;">StripChat</strong>
           </div>
-          <div style="color: var(--text-dim); font-size: 13px;">WebSocket • &lt;500ms instant</div>
+          <div style="color: var(--text-dim); font-size: 13px;">HTTP Polling • ~3s delay</div>
+        </div>
+
+        <div class="platform-toggle" onclick="togglePlatform('twitch')" id="twitch-toggle" style="cursor: pointer; padding: 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; transition: all 0.2s;" id="twitch-check">
+              <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity 0.2s;" id="twitch-dot"></div>
+            </div>
+            <strong style="font-size: 16px;">Twitch (currently in beta testing, not confirmed)</strong>
+          </div>
+          <div style="color: var(--text-dim); font-size: 13px;">EventSub WebSocket • &lt;500ms instant</div>
         </div>
       </div>
     </div>
@@ -1323,6 +1333,87 @@ input[type="range"]::-moz-range-thumb {
       </div>
     </div>
 
+    <!-- Twitch Configuration -->
+    <div id="twitch-config-section" style="display: none;">
+      <div class="section-title section-title-collapsible" onclick="toggleSection('server-twitch')">Twitch Configuration <span class="section-toggle" id="server-twitch-toggle">▼</span></div>
+      <div class="section-content" id="server-twitch-content">
+      <div class="config-section">
+        <h3 style="margin-bottom: 15px;">Step 1: Create a Twitch Application</h3>
+        <p style="margin-bottom: 15px; line-height: 1.6;">
+          Go to <a href="https://dev.twitch.tv/console/apps/create" target="_blank" style="color: var(--accent);">dev.twitch.tv/console/apps/create</a> and register a new application.
+        </p>
+
+        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid var(--accent);">
+          <strong style="display: block; margin-bottom: 10px;">Suggested Settings:</strong>
+          <ul style="line-height: 1.8; padding-left: 20px; margin: 0;">
+            <li><strong>Name:</strong> OBS Scene Switcher</li>
+            <li><strong>OAuth Redirect URL:</strong> <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">http://localhost</code></li>
+            <li><strong>Category:</strong> Broadcaster Suite</li>
+          </ul>
+        </div>
+
+        <p style="margin-bottom: 15px; line-height: 1.6;">
+          After creating the app, copy the <strong>Client ID</strong> shown on the app detail page.
+        </p>
+
+        <h3 style="margin: 25px 0 15px;">Step 2: Get an OAuth Access Token</h3>
+        <p style="margin-bottom: 15px; line-height: 1.6;">
+          You need a user access token with the <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">bits:read</code> scope. The easiest way:
+        </p>
+
+        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid var(--accent);">
+          <strong style="display: block; margin-bottom: 10px;">Using Twitch Token Generator:</strong>
+          <ol style="line-height: 1.8; padding-left: 20px; margin: 0;">
+            <li>Go to <strong>twitchtokengenerator.com</strong></li>
+            <li>Select <strong>User Token</strong></li>
+            <li>Enter your <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+            <li>Enable the <strong>bits:read</strong> scope</li>
+            <li>Authorize with your Twitch broadcaster account</li>
+            <li>Copy the generated <strong>Access Token</strong></li>
+          </ol>
+        </div>
+
+        <div style="background: rgba(255,152,0,0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid #FF9800;">
+          <strong style="display: block; margin-bottom: 10px; color: #FF9800;">⚠️ Authorize as your broadcaster account</strong>
+          <p style="margin: 0; line-height: 1.6;">
+            The access token must belong to the channel you are streaming from. EventSub for <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">channel.cheer</code> requires the token owner to be the broadcaster.
+          </p>
+        </div>
+
+        <h3 style="margin: 25px 0 15px;">Step 3: Enter Your Credentials</h3>
+
+        <div class="form-group">
+          <label>Client ID</label>
+          <input type="text" id="twitch-client-id" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" oninput="updateSaveButton()">
+          <div class="help-text">From your Twitch application page at dev.twitch.tv/console</div>
+        </div>
+
+        <div class="form-group">
+          <label>Access Token</label>
+          <input type="text" id="twitch-access-token" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" oninput="updateSaveButton()">
+          <div class="help-text">User OAuth token with <strong>bits:read</strong> scope — do not include an "oauth:" prefix</div>
+        </div>
+
+        <div class="form-group">
+          <label>Channel Name</label>
+          <input type="text" id="twitch-channel" placeholder="your_twitch_username" oninput="updateSaveButton()">
+          <div class="help-text">Your broadcaster username (lowercase, as it appears in twitch.tv/<strong>username</strong>)</div>
+        </div>
+
+        <div style="background: rgba(76,175,80,0.1); padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 3px solid #4CAF50;">
+          <strong style="display: block; margin-bottom: 10px; color: #4CAF50;">✨ How it works</strong>
+          <ul style="margin: 0; padding-left: 20px; line-height: 1.8;">
+            <li>Connects via Twitch EventSub WebSocket — no webhooks or port forwarding needed ✅</li>
+            <li>Bits cheers, including anonymous cheers ✅</li>
+            <li>Cheer message text ✅</li>
+            <li>Instant delivery — no polling delay ✅</li>
+            <li>Automatic reconnection on disconnect ✅</li>
+          </ul>
+        </div>
+      </div>
+      </div>
+    </div>
+
     <!-- Save Button -->
     <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--border);">
       <button class="btn btn-primary" onclick="saveUnifiedServerConfig()" style="font-size: 16px; padding: 14px 28px;" id="save-server-btn" disabled title="Download config.json with your platform credentials — place it in the project folder to connect to your streaming platforms">
@@ -1406,8 +1497,9 @@ input[type="range"]::-moz-range-thumb {
       <li><strong>Chaturbate</strong> - Connects via Events API ✓</li>
       <li><strong>Joystick.tv</strong> - Connects through WebSocket API ✓</li>
       <li><strong>StripChat</strong> - Polls the public chat API via HTTP ✓</li>
+      <li><strong>Twitch</strong> - Currently in beta testing</li>
     </ul>
-    
+
     <h3 style="margin-top: 30px; margin-bottom: 15px;">Tips</h3>
     <ul style="line-height: 1.8; padding-left: 20px;">
       <li>You can add a trigger for a scene several times. For example for different durations</li>
@@ -2982,13 +3074,14 @@ function toggleConfigMethod() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  UNIFIED SERVER (CHATURBATE + JOYSTICK.TV + STRIPCHAT)
+//  UNIFIED SERVER (CHATURBATE + JOYSTICK.TV + STRIPCHAT + TWITCH)
 // ═══════════════════════════════════════════════════════════
 
 let platformsEnabled = {
   chaturbate: false,
   joystick: false,
-  stripchat: false
+  stripchat: false,
+  twitch: false
 };
 
 let selectedLogLevel = 1;
@@ -3023,7 +3116,7 @@ function initSectionStates() {
     'theme-position', 'theme-animation', 'theme-typography',
     'theme-menu-display', 'theme-ticker',
     'server-logging',
-    'server-chaturbate', 'server-joystick', 'server-stripchat'
+    'server-chaturbate', 'server-joystick', 'server-stripchat', 'server-twitch'
   ].forEach(id => {
     const saved = localStorage.getItem('section-' + id);
     if (saved === 'collapsed') {
@@ -3063,7 +3156,7 @@ function updateSaveButton() {
   const saveBtn = document.getElementById('save-server-btn');
   const warning = document.getElementById('platform-warning');
   
-  const anyEnabled = platformsEnabled.chaturbate || platformsEnabled.joystick || platformsEnabled.stripchat;
+  const anyEnabled = platformsEnabled.chaturbate || platformsEnabled.joystick || platformsEnabled.stripchat || platformsEnabled.twitch;
   
   if (!anyEnabled) {
     saveBtn.disabled = true;
@@ -3098,6 +3191,13 @@ function updateSaveButton() {
     if (!username) missingCredentials = true;
   }
 
+  if (platformsEnabled.twitch) {
+    const clientId = document.getElementById('twitch-client-id').value.trim();
+    const accessToken = document.getElementById('twitch-access-token').value.trim();
+    const channel = document.getElementById('twitch-channel').value.trim();
+    if (!clientId || !accessToken || !channel) missingCredentials = true;
+  }
+
   if (missingCredentials) {
     saveBtn.disabled = true;
     warning.style.display = 'block';
@@ -3112,6 +3212,7 @@ function saveUnifiedServerConfig() {
   let cbUsername = '', cbToken = '';
   let joystickClientId = '', joystickClientSecret = '';
   let stripchatUsername = '';
+  let twitchClientId = '', twitchAccessToken = '', twitchChannel = '';
   
   // Get Chaturbate credentials if enabled
   if (platformsEnabled.chaturbate) {
@@ -3142,6 +3243,13 @@ function saveUnifiedServerConfig() {
     stripchatUsername = document.getElementById('stripchat-username').value.trim();
   }
 
+  // Get Twitch credentials if enabled
+  if (platformsEnabled.twitch) {
+    twitchClientId = document.getElementById('twitch-client-id').value.trim();
+    twitchAccessToken = document.getElementById('twitch-access-token').value.trim();
+    twitchChannel = document.getElementById('twitch-channel').value.trim();
+  }
+
   // Generate unified server file
   const serverContent = generateUnifiedServerFile(
     platformsEnabled.chaturbate,
@@ -3152,6 +3260,10 @@ function saveUnifiedServerConfig() {
     joystickClientSecret,
     platformsEnabled.stripchat,
     stripchatUsername,
+    platformsEnabled.twitch,
+    twitchClientId,
+    twitchAccessToken,
+    twitchChannel,
     selectedLogLevel
   );
   
@@ -3186,16 +3298,25 @@ function saveUnifiedServerConfig() {
     localStorage.setItem('stripchatUsername', stripchatUsername);
   }
 
+  if (platformsEnabled.twitch) {
+    localStorage.setItem('twitchClientId', twitchClientId);
+    localStorage.setItem('twitchAccessToken', twitchAccessToken);
+    localStorage.setItem('twitchChannel', twitchChannel);
+  }
+
   showNotification('✅ config.json downloaded! Place it in the same folder as oss_server.js' +
-    ((platformsEnabled.joystick || platformsEnabled.stripchat) ? ', then double click START_SERVER' : ''));
+    ((platformsEnabled.joystick || platformsEnabled.stripchat || platformsEnabled.twitch) ? ', then double click START_SERVER' : ''));
 }
 
-function generateUnifiedServerFile(enableCb, cbUsername, cbToken, enableJoystick, joystickClientId, joystickClientSecret, enableStripchat, stripchatUsername, logLevel) {
+function generateUnifiedServerFile(enableCb, cbUsername, cbToken, enableJoystick, joystickClientId, joystickClientSecret, enableStripchat, stripchatUsername, enableTwitch, twitchClientId, twitchAccessToken, twitchChannel, logLevel) {
   const cbUsernameVal = enableCb ? cbUsername : 'your_username_here';
   const cbTokenVal = enableCb ? cbToken : 'your_token_here';
   const joystickClientIdVal = enableJoystick ? joystickClientId : 'your_client_id_here';
   const joystickClientSecretVal = enableJoystick ? joystickClientSecret : 'your_client_secret_here';
   const stripchatUsernameVal = enableStripchat ? stripchatUsername : 'your_username_here';
+  const twitchClientIdVal = enableTwitch ? twitchClientId : 'your_client_id_here';
+  const twitchAccessTokenVal = enableTwitch ? twitchAccessToken : 'your_access_token_here';
+  const twitchChannelVal = enableTwitch ? twitchChannel : 'your_channel_here';
 
   // Generate JSON configuration file
   const config = {
@@ -3213,6 +3334,12 @@ function generateUnifiedServerFile(enableCb, cbUsername, cbToken, enableJoystick
       stripchat: {
         enabled: enableStripchat,
         username: stripchatUsernameVal
+      },
+      twitch: {
+        enabled: enableTwitch,
+        clientId: twitchClientIdVal,
+        accessToken: twitchAccessTokenVal,
+        channel: twitchChannelVal
       }
     },
     server: {
@@ -3252,7 +3379,16 @@ function setupPlatformListeners() {
       el.addEventListener('change', updateSaveButton);
     }
   });
-  
+
+  const twitchInputs = ['twitch-client-id', 'twitch-access-token', 'twitch-channel'];
+  twitchInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', updateSaveButton);
+      el.addEventListener('change', updateSaveButton);
+    }
+  });
+
   // Also listen to config method radio changes
   const radios = document.querySelectorAll('input[name="config-method"]');
   radios.forEach(radio => {
@@ -3264,7 +3400,7 @@ function loadPlatformSettings() {
   // Load saved platform selections into a local var — do NOT overwrite platformsEnabled yet,
   // since togglePlatform flips from false→true, so we need it to start at false.
   const saved = localStorage.getItem('platformsEnabled');
-  const savedPlatforms = saved ? JSON.parse(saved) : { chaturbate: false, joystick: false, stripchat: false };
+  const savedPlatforms = saved ? JSON.parse(saved) : { chaturbate: false, joystick: false, stripchat: false, twitch: false };
 
   // Load Chaturbate credentials
   const cbUrl = localStorage.getItem('cbUrl');
@@ -3291,10 +3427,19 @@ function loadPlatformSettings() {
   const stripchatUsername = localStorage.getItem('stripchatUsername');
   if (stripchatUsername) document.getElementById('stripchat-username').value = stripchatUsername;
 
+  // Load Twitch credentials
+  const twitchClientId = localStorage.getItem('twitchClientId');
+  const twitchAccessToken = localStorage.getItem('twitchAccessToken');
+  const twitchChannel = localStorage.getItem('twitchChannel');
+  if (twitchClientId) document.getElementById('twitch-client-id').value = twitchClientId;
+  if (twitchAccessToken) document.getElementById('twitch-access-token').value = twitchAccessToken;
+  if (twitchChannel) document.getElementById('twitch-channel').value = twitchChannel;
+
   // Apply saved platform states — platformsEnabled starts all-false, so togglePlatform correctly enables them
   if (savedPlatforms.chaturbate) togglePlatform('chaturbate');
   if (savedPlatforms.joystick) togglePlatform('joystick');
   if (savedPlatforms.stripchat) togglePlatform('stripchat');
+  if (savedPlatforms.twitch) togglePlatform('twitch');
 
   const savedLogLevel = parseInt(localStorage.getItem('logLevel')) || 1;
   setLogLevel(savedLogLevel);
