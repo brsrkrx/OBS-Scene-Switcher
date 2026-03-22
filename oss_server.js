@@ -216,8 +216,7 @@ async function downloadAndUpdate(latestVersion) {
     'oss_editor.html',
     'START_SERVER_WINDOWS.bat',
     'START_SERVER_MAC.command',
-    'README.md',
-    'CHANGELOG.md'
+    'README.md'
   ];
 
   for (const file of files) {
