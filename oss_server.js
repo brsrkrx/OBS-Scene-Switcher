@@ -542,8 +542,32 @@ const server = http.createServer((req, res) => {
   res.end('Not Found');
 });
 
+function logSceneTrigger(tokens) {
+  try {
+    let configJson = lastConfig;
+    if (!configJson && fs.existsSync(lastConfigPath)) {
+      const combined = JSON.parse(fs.readFileSync(lastConfigPath, 'utf8'));
+      if (combined.config) configJson = JSON.stringify(combined.config);
+    }
+    if (!configJson) return;
+    const config = JSON.parse(configJson);
+    if (!Array.isArray(config.SCENE_TIPS)) return;
+    const match = config.SCENE_TIPS.find(entry => Number(entry.tokens) === tokens && !entry.disabled);
+    if (match) {
+      log(`🎬 Scene trigger: ${tokens} tokens → "${match.scene}"`);
+    } else {
+      log(`ℹ️  No scene trigger configured for ${tokens} tokens`);
+    }
+  } catch (err) {
+    vlog('⚠️ logSceneTrigger error: ' + err.message);
+  }
+}
+
 function sendEventsToClients() {
   if (clients.length > 0 && latestEvents.length > 0) {
+    latestEvents.forEach(event => {
+      if (event.type === 'tip') logSceneTrigger(event.tokens);
+    });
     vlog(`📤 SERVER: Sending ${latestEvents.length} events to ${clients.length} connected client(s)`);
 
     const message = JSON.stringify({ events: latestEvents });
