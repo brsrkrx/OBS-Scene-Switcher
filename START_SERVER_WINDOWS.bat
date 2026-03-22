@@ -100,12 +100,12 @@ if not exist "%SCRIPT_DIR%oss_server.js" (
 :: Start the server
 node "%SCRIPT_DIR%oss_server.js"
 
-:: If server exits with an error, pause so user can see the message
+:: If server exits with an error, show error message
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [ERROR] Server exited with error code %ERRORLEVEL%
     echo.
-    pause
 )
 
+pause
 endlocal
