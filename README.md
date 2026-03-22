@@ -12,8 +12,8 @@ Transform your cam shows with dynamic, tip-activated scene transitions! Set diff
 
 ## 📸 Screenshots
 
-<a href="Supplement files/screenshots/editor-config.png"><img src="Supplement files/screenshots/editor-config.png" width="400" alt="Configuration editor"></a>
-<a href="Supplement files/screenshots/editor-theme.png"><img src="Supplement files/screenshots/editor-theme.png" width="400" alt="Theme editor"></a>
+<a href="docs/screenshots/editor-config.png"><img src="docs/screenshots/editor-config.png" width="400" alt="Configuration editor"></a>
+<a href="docs/screenshots/editor-theme.png"><img src="docs/screenshots/editor-theme.png" width="400" alt="Theme editor"></a>
 
 ---
 
