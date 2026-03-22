@@ -24,9 +24,9 @@ jobs:
           cp oss_server.js oss_editor.html oss_overlay.html \
             START_SERVER_MAC.command START_SERVER_WINDOWS.bat \
             README.md LICENSE "$FOLDER/"
-          cp "Supplement files/config.example.json" \
-             "Supplement files/CONFIG_GUIDE.md" \
-             "Supplement files/CHANGELOG.md" "$FOLDER/"
+          cp "docs/config.example.json" \
+             "docs/CONFIG_GUIDE.md" \
+             "docs/CHANGELOG.md" "$FOLDER/"
           zip -r "$ZIP_NAME" "$FOLDER"
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
 
