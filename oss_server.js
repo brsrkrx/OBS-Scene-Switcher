@@ -99,7 +99,8 @@ try {
     TWITCH_CHANNEL: config.platforms.twitch?.channel || '',
     TWITCH_CLI_TEST: config.platforms.twitch?.cliTest ?? false,
     PORT: config.server.port || 3000,
-    LOG_LEVEL_DEFAULT: Math.min(3, Math.max(1, parseInt(config.server.log_level) || 1))
+    LOG_LEVEL_DEFAULT: Math.min(3, Math.max(1, parseInt(config.server.log_level) || 1)),
+    ENABLE_BETA_UPDATES: config.server?.beta_updates ?? false
   };
   
   log('✅ Configuration loaded successfully');
@@ -127,12 +128,29 @@ try {
 }
 
 // ── Check for Updates ───────────────────────────────────────
+function parseSemver(v) {
+  const [main, ...preParts] = v.split('-');
+  const [major, minor, patch] = main.split('.').map(Number);
+  return { major: major || 0, minor: minor || 0, patch: patch || 0, pre: preParts.join('-') || null };
+}
+
+function isNewerVersion(a, b) {
+  if (a.major !== b.major) return a.major > b.major;
+  if (a.minor !== b.minor) return a.minor > b.minor;
+  if (a.patch !== b.patch) return a.patch > b.patch;
+  if (!a.pre && b.pre) return true;   // stable beats pre-release of same version
+  if (a.pre && !b.pre) return false;
+  if (a.pre && b.pre) return a.pre > b.pre;
+  return false;
+}
+
 function checkForUpdates() {
-  log('🔍 Checking for updates...');
+  const beta = CONFIG.ENABLE_BETA_UPDATES;
+  log(beta ? '🔍 Checking for updates (beta channel)...' : '🔍 Checking for updates...');
   return new Promise((resolve) => {
     const options = {
       hostname: 'api.github.com',
-      path: `/repos/${GITHUB_REPO}/releases/latest`,
+      path: `/repos/${GITHUB_REPO}/releases` + (beta ? '' : '/latest'),
       headers: { 'User-Agent': 'OBS-Scene-Switcher' }
     };
 
@@ -141,26 +159,23 @@ function checkForUpdates() {
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         try {
-          const release = JSON.parse(data);
+          const parsed = JSON.parse(data);
+          const release = beta ? (Array.isArray(parsed) ? parsed[0] : null) : parsed;
+          if (!release) { resolve({ isNewer: false }); return; }
+
           const latest = (release.tag_name || '').replace(/^v/, '');
           if (!latest) { resolve({ isNewer: false }); return; }
 
-          const toNum = v => v.split('.').map(Number);
-          const [lMaj, lMin, lPat] = toNum(latest);
-          const [cMaj, cMin, cPat] = toNum(CURRENT_VERSION);
+          const isPrerelease = release.prerelease === true;
+          const newer = isNewerVersion(parseSemver(latest), parseSemver(CURRENT_VERSION));
 
-          const isNewer =
-            lMaj > cMaj ||
-            (lMaj === cMaj && lMin > cMin) ||
-            (lMaj === cMaj && lMin === cMin && lPat > cPat);
-
-          if (isNewer) {
+          if (newer) {
             log('');
             log('╔══════════════════════════════════════════════════════╗');
-            log(`║  🆕 Update available: v${CURRENT_VERSION} → v${latest}`);
+            log(`║  🆕 Update available: v${CURRENT_VERSION} → v${latest}${isPrerelease ? ' (pre-release)' : ''}`);
             log('╚══════════════════════════════════════════════════════╝');
             log('');
-            resolve({ isNewer: true, latest });
+            resolve({ isNewer: true, latest, isPrerelease });
           } else {
             log(`✅ OBS Scene Switcher is up to date (v${CURRENT_VERSION})`);
             resolve({ isNewer: false });
@@ -644,13 +659,14 @@ async function startServer() {
   const updateInfo = await checkForUpdates();
   if (updateInfo.isNewer) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await new Promise(resolve => rl.question(`  Update to v${updateInfo.latest} now? (Y/n): `, resolve));
+    const versionLabel = `v${updateInfo.latest}${updateInfo.isPrerelease ? ' (pre-release)' : ''}`;
+    const answer = await new Promise(resolve => rl.question(`  Update to ${versionLabel} now? (Y/n): `, resolve));
     rl.close();
     if (!answer.trim() || answer.trim().toLowerCase() === 'y') {
       log('\n📥 Downloading update...');
       try {
         await downloadAndUpdate(updateInfo.latest);
-        log(`\n✅ Updated to v${updateInfo.latest}! Please restart the server.`);
+        log(`\n✅ Updated to v${updateInfo.latest}${updateInfo.isPrerelease ? ' (pre-release)' : ''}! Please restart the server.`);
         process.exit(0);
       } catch (err) {
         log(`\n❌ Update failed: ${err.message}`);
