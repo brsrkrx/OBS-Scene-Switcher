@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-03-24
+
+### Added
+- 🖼️ **Preview Background Options** - A new "Preview Background" section at the bottom of the Theme tab lets you change the editor preview's background without affecting the live overlay
+  - **Checkerboard** mode shows a gray checkerboard grid so transparent elements are easy to spot
+  - **Image** mode lets you load any image (e.g. a game screenshot) to see how alerts look over real content
+  - Selection and loaded image persist across page reloads via localStorage
+
+---
+
 ## [1.1.2] - 2026-03-22
 
 ### Fixed

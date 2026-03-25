@@ -193,6 +193,8 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
 4. See live preview
 5. Click "Apply changes to OBS"
 
+**Tip:** Use the **Preview Background** section at the bottom of the Theme tab to set a checkerboard background (great for checking transparency) or load a game screenshot to see exactly how alerts will look in context. This is editor-only and doesn't affect the live overlay.
+
 **No coding required!**
 
 ---

@@ -168,6 +168,13 @@ body {
   transform-origin: top left;
 }
 
+.preview-bg-checkerboard {
+  background-image:
+    repeating-conic-gradient(#3a3a3a 0% 25%, #242424 0% 50%) !important;
+  background-size: 40px 40px !important;
+  background-color: unset !important;
+}
+
 .preview-info {
   margin-top: 20px; text-align: center;
   color: var(--text-dim); font-size: 13px;
@@ -609,7 +616,7 @@ input[type="range"]::-moz-range-thumb {
 <body>
 
 <div class="header">
-  <h1>🎥 OBS Scene Switcher Editor</h1>
+  <h1>  🎥 OBS Scene Switcher Editor</h1>
   <div class="header-actions">
     <div class="notification" id="notification"></div>
     <div class="connection-badge" id="connection-badge" title="Connection status. If server offline, start server. If Overlay not connected: Make sure oss_overlay.html is added to OBS and page permission is set to Advanced. If still not connected, right-click the OBS browser source → Refresh cache of current page">
@@ -946,8 +953,32 @@ input[type="range"]::-moz-range-thumb {
     </div>
     </div>
 
+    <div class="section-title section-title-collapsible" onclick="toggleSection('preview-bg')">
+      Preview Background <span class="section-toggle" id="preview-bg-toggle">▼</span>
+    </div>
+    <div class="section-content" id="preview-bg-content">
+      <div class="form-group">
+        <label>Background Type</label>
+        <select id="preview-bg-type" onchange="updatePreviewBackground()">
+          <option value="default">Default (Dark)</option>
+          <option value="checkerboard">Checkerboard</option>
+          <option value="image">Image</option>
+        </select>
+        <div class="help-text">Preview-only — does not affect the live overlay</div>
+      </div>
+      <div class="form-group" id="preview-bg-image-row" style="display:none;">
+        <label>Image</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn" onclick="document.getElementById('preview-bg-file').click()">Choose Image…</button>
+          <button class="btn" id="preview-bg-clear" onclick="clearPreviewBgImage()" style="display:none;">Clear</button>
+        </div>
+        <input type="file" id="preview-bg-file" accept="image/*" style="display:none;" onchange="loadPreviewBgImage(event)">
+        <div class="help-text">Load a screenshot or image to see how alerts look over it</div>
+      </div>
+    </div>
+
   </div>
-  
+
   <div class="right-panel">
     <div class="preview-outer" id="preview-outer">
       <div class="preview-container" id="preview-container"></div>
@@ -1076,7 +1107,7 @@ input[type="range"]::-moz-range-thumb {
             </div>
             <strong style="font-size: 16px;">Chaturbate</strong>
           </div>
-          <div style="color: var(--text-dim); font-size: 13px;">HTTP Polling • ~1s delay</div>
+          <div style="color: var(--text-dim); font-size: 13px;">Events API • ~1s delay</div>
         </div>
 
         <div class="platform-toggle" onclick="togglePlatform('joystick')" id="joystick-toggle" style="cursor: pointer; padding: 20px; border: 2px solid var(--border); border-radius: 12px; transition: all 0.2s;">
@@ -1465,10 +1496,8 @@ input[type="range"]::-moz-range-thumb {
       <li><strong>Resizable Panels</strong> - Drag divider to adjust preview size</li>
       <li><strong>4 Theme Presets</strong> - Cyberpunk, Minimal, Retro Wave, Luxury Gold</li>
       <li><strong>Custom Themes</strong> - Save, load, export, and import unlimited themes</li>
-      <li><strong>Visual Gradient Builder</strong> - No CSS knowledge required</li>
       <li><strong>6 Animation Styles</strong> - Slide, Fade, Zoom, Bounce, Stamp, Flip</li>
       <li><strong>7 Position Options</strong> - Place alerts anywhere on screen</li>
-      <li><strong>Dual Opacity Controls</strong> - Separate box and background transparency</li>
       <li><strong>Complete Typography Control</strong> - Individual font sizes and families</li>
       <li><strong>Per-Scene Return Timers</strong> - Different delays for each tip amount</li>
       <li><strong>Scene Return Progress Bar</strong> - Visual countdown at screen bottom</li>
@@ -1478,6 +1507,7 @@ input[type="range"]::-moz-range-thumb {
       <li><strong>Global overlay toggle</strong> - for non-scene switching tips</li>
       <li><strong>Custom test tip editor</strong> - test with any username, amount, and message</li>
       <li><strong>Scrolling ticker with menu items</strong> - Option for top and bottom of screen</li>
+      <li><strong>Preview Background Modes</strong> - Checkerboard to visualize transparency, or load an image to preview alerts over real content</li>
     </ul>
     
     <h3 style="margin-top: 30px; margin-bottom: 15px;">Quick Start</h3>
@@ -1735,6 +1765,11 @@ function init() {
   renderSceneTips();
   updateGradient();
   updatePreview();
+
+  // Restore preview background type
+  const savedPrevBgType = localStorage.getItem('previewBgType') || 'default';
+  document.getElementById('preview-bg-type').value = savedPrevBgType;
+  updatePreviewBackground();
   
   // Show Server Setup tab if credentials not configured, otherwise restore last active tab
   const hasSavedCredentials = localStorage.getItem('apiConfigured') === 'true';
@@ -3727,6 +3762,56 @@ if (resizer) {
     document.body.style.cursor = 'default';
     document.body.style.userSelect = 'auto';
   });
+}
+
+// ── Preview Background ────────────────────────────────────────
+function updatePreviewBackground() {
+  const type = document.getElementById('preview-bg-type').value;
+  const container = document.getElementById('preview-container');
+  const imageRow = document.getElementById('preview-bg-image-row');
+
+  container.classList.remove('preview-bg-checkerboard');
+  container.style.backgroundImage = '';
+  container.style.backgroundSize = '';
+  container.style.backgroundPosition = '';
+  container.style.backgroundColor = '#1a1a1a';
+
+  if (type === 'checkerboard') {
+    container.classList.add('preview-bg-checkerboard');
+    imageRow.style.display = 'none';
+  } else if (type === 'image') {
+    imageRow.style.display = '';
+    const stored = localStorage.getItem('previewBgImage');
+    if (stored) {
+      container.style.backgroundImage = `url(${stored})`;
+      container.style.backgroundSize = 'cover';
+      container.style.backgroundPosition = 'center';
+      document.getElementById('preview-bg-clear').style.display = '';
+    }
+  } else {
+    imageRow.style.display = 'none';
+  }
+
+  localStorage.setItem('previewBgType', type);
+}
+
+function loadPreviewBgImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    localStorage.setItem('previewBgImage', e.target.result);
+    document.getElementById('preview-bg-clear').style.display = '';
+    updatePreviewBackground();
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearPreviewBgImage() {
+  localStorage.removeItem('previewBgImage');
+  document.getElementById('preview-bg-file').value = '';
+  document.getElementById('preview-bg-clear').style.display = 'none';
+  updatePreviewBackground();
 }
 
 init();
