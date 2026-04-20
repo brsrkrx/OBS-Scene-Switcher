@@ -58,7 +58,7 @@ Viewer Tips → Platform API → Scene Switcher → OBS → Scene Change!
 
 - [Node.js](https://nodejs.org/) (v14 or higher) - Click Get Node.js, then download the installer for your OS
 - [OBS Studio](https://obsproject.com/) (latest version)
-- Active streamer account on [Chaturbate](https://chaturbate.com/) and/or [Joystick.tv](https://joystick.tv/) and/or [Stripchat](https://stripchat.com/)
+- Active streamer account on [Chaturbate](https://chaturbate.com/in/?tour=OT2s&campaign=NO4MR&track=default) and/or [Joystick.tv](https://joystick.tv/t/u/brsrkr?t=20bf6237) and/or [Stripchat](https://stripchat.com/brsrkr/follow-me) <- Affiliate links
 
 ### **Installation**
 
