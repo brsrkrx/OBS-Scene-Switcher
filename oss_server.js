@@ -939,7 +939,7 @@ function connectToJoystick(WebSocket) {
   if (!CONFIG.ENABLE_JOYSTICK) return;
   
   const basicAuth = Buffer.from(`${CONFIG.JOYSTICK_CLIENT_ID}:${CONFIG.JOYSTICK_CLIENT_SECRET}`).toString('base64');
-  const wsUrl = `wss://joystick.tv/cable?token=${basicAuth}`;
+  const wsUrl = `wss://api.joystick.tv/cable?token=${basicAuth}`;
   
   log('🟢 [JOYSTICK] Connecting to WebSocket...');
   
