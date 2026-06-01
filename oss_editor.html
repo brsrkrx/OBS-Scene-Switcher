@@ -443,7 +443,11 @@ input[type="range"]::-moz-range-thumb {
 .scene-label {
   font-size: 11px; color: var(--text-dim);
   text-transform: uppercase; letter-spacing: 0.5px;
-  margin-bottom: 6px;
+  position: sticky; top: -30px; z-index: 10;
+  background: var(--surface);
+  padding-top: 8px; padding-bottom: 8px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1059,7 +1063,7 @@ input[type="range"]::-moz-range-thumb {
       ⚠️ <strong>No OBS connection yet?</strong> You can type scene names manually — they must match OBS <strong>exactly</strong> (capitals and spaces matter).
     </div>
     
-    <div class="scene-label" style="display: grid; grid-template-columns: 28px 60px 1fr 100px 60px 80px 50px 50px; gap: 12px; margin-bottom: 10px; padding: 0 15px;">
+    <div class="scene-label" style="display: grid; grid-template-columns: 28px 60px 1fr 100px 60px 80px 50px 50px; gap: 12px; padding: 8px 15px;">
       <span></span>
       <span>Tip Amount</span>
       <span>OBS Scene Name</span>
@@ -2992,7 +2996,6 @@ function renderSceneTips() {
   sceneTips.forEach((tip, i) => {
     const div = document.createElement('div');
     div.className = 'scene-item' + (tip.disabled ? ' tip-disabled' : '');
-    div.draggable = true;
     const showOverlay = tip.showOverlay !== false;
 
     div.innerHTML = `
@@ -3016,6 +3019,10 @@ function renderSceneTips() {
     inputs[2].value = tip.switchDelay ?? 0;
     inputs[3].checked = showOverlay;
     div.querySelector('.scene-name-cell').appendChild(buildSceneField(i, tip.scene));
+
+    const handle = div.querySelector('.drag-handle');
+    handle.addEventListener('mouseenter', () => { div.draggable = true; });
+    handle.addEventListener('mouseleave', () => { div.draggable = false; });
 
     div.addEventListener('dragstart', (e) => {
       dragSrcIndex = i;

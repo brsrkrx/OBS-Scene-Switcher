@@ -20,6 +20,7 @@ const logFile = path.join(__dirname, 'oss_server_debug.log');
 
 const C = {
   reset:  '\x1b[0m',
+  white:  '\x1b[97m',         // bright white — body text
   cb:     '\x1b[38;5;208m',  // orange  — Chaturbate
   js:     '\x1b[36m',        // teal    — Joystick.tv
   sc:     '\x1b[38;5;88m',   // maroon  — StripChat
@@ -27,11 +28,18 @@ const C = {
 };
 
 function colorize(message) {
-  if (message.includes('\x1b[')) return message; // already colored (e.g. enter/leave)
-  if (message.includes('[CHATURBATE]')) return C.cb + message + C.reset;
-  if (message.includes('[JOYSTICK]'))   return C.js + message + C.reset;
-  if (message.includes('[STRIPCHAT]'))  return C.sc + message + C.reset;
-  if (message.includes('[TWITCH]'))     return C.tw + message + C.reset;
+  if (message.includes('\x1b[')) return message; // pre-colored (enter/leave)
+  const platforms = [
+    { tag: '[CHATURBATE]', color: C.cb },
+    { tag: '[JOYSTICK]',   color: C.js },
+    { tag: '[STRIPCHAT]',  color: C.sc },
+    { tag: '[TWITCH]',     color: C.tw },
+  ];
+  for (const { tag, color } of platforms) {
+    if (message.includes(tag)) {
+      return message.replace(tag, color + tag + C.reset + C.white) + C.reset;
+    }
+  }
   return message;
 }
 
@@ -798,6 +806,7 @@ startServer().catch(err => {
 
 let chaturbateFetchActive = false;
 let chaturbateEventsUrl = '';
+let chaturbateHadError = false;
 
 function startChaturbate() {
   log('🟣 Starting Chaturbate integration...');
@@ -812,6 +821,11 @@ async function pollChaturbateEvents() {
 
   try {
     const data = await fetchEvents(chaturbateEventsUrl + '?timeout=10');
+
+    if (chaturbateHadError) {
+      log('✅ [CHATURBATE] Connection recovered — polling resumed');
+      chaturbateHadError = false;
+    }
 
     if (data.next_url) {
       chaturbateEventsUrl = data.next_url;
@@ -828,6 +842,7 @@ async function pollChaturbateEvents() {
     }
   } catch (err) {
     log('⚠️  [CHATURBATE] Events API error: ' + err.message + ' — retrying in 5s');
+    chaturbateHadError = true;
     await sleep(5000);
   } finally {
     chaturbateFetchActive = false;
@@ -905,9 +920,9 @@ function processChaturbateEvent(event) {
     const username = obj.user?.username || 'Unknown';
     
     if (method === 'userEnter') {
-      elog(`\x1b[32m▶  [CHATURBATE] Event: userEnter "${username}"\x1b[0m`);
+      elog(`\x1b[32m▶  ${C.cb}[CHATURBATE]${C.reset}\x1b[32m Event: userEnter "${username}"\x1b[0m`);
     } else if (method === 'userLeave') {
-      elog(`\x1b[31m⬅  [CHATURBATE] Event: userLeave "${username}"\x1b[0m`);
+      elog(`\x1b[31m⬅  ${C.cb}[CHATURBATE]${C.reset}\x1b[31m Event: userLeave "${username}"\x1b[0m`);
     } else {
       vlog(`ℹ️  [CHATURBATE] NON-TIP EVENT IGNORED: ${method}`);
     }
@@ -1047,9 +1062,9 @@ function processJoystickEvent(event) {
     const username = event.text || 'Unknown';
     
     if (presenceType === 'enter_stream') {
-      elog(`\x1b[32m▶  JOYSTICK] Event: userEnter "${username}"\x1b[0m`);
+      elog(`\x1b[32m▶  ${C.js}[JOYSTICK]${C.reset}\x1b[32m Event: userEnter "${username}"\x1b[0m`);
     } else if (presenceType === 'leave_stream') {
-      elog(`\x1b[31m⬅  [JOYSTICK] Event: userLeave "${username}"\x1b[0m`);
+      elog(`\x1b[31m⬅  ${C.js}[JOYSTICK]${C.reset}\x1b[31m Event: userLeave "${username}"\x1b[0m`);
     }
   }
   

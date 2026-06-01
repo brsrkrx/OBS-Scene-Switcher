@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- 🎨 **Color-coded console output** - Each platform tag (`[CHATURBATE]`, `[JOYSTICK]`, etc.) is now printed in its own color (orange, teal, maroon, purple), with the rest of the log line in white. User enter/leave events remain green/red and also show the platform tag in its color
+- 🔌 **Chaturbate connection recovery log** - Server now prints a confirmation message when Chaturbate polling resumes successfully after an error
+
+### Changed
+- 🖱️ **Drag-to-reorder** in the editor now only activates when hovering over the drag handle (⠿), not the entire row
+- 📌 **Sticky column headers** in the editor — the "Tip Amount / OBS Scene Name / Return / ..." header row now stays visible at the top of the panel while scrolling through long trigger lists
+
+### Fixed
+- Corrected a typo in the Joystick.tv userEnter console log (`JOYSTICK]` → `[JOYSTICK]`)
+
+---
+
 ## [1.1.3] - 2026-05-12
 
 ### Added
