@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4-beta.2] - 2026-06-19
+
+### Added
+- 🗂️ **Profiles** - Save multiple named setups and switch between them instantly from the Configuration tab. Each profile stores your scene triggers, general settings, and theme — great for having different shows with different tip menus and looks ready to go
+
+### Fixed
+- 💾 **Credentials now auto-save to browser storage as you type** — previously, the active tab and other session state would not be remembered on a fresh browser profile (e.g. a different machine) because credentials were never persisted until a file download. Filling in any credential field now immediately saves it to localStorage
+- 🗂️ **Profile dropdown now correctly reflects last applied setup on reload** — previously, loading a profile without applying it to OBS would cause the dropdown to show the wrong profile name after a page reload
+
+---
+
 ## [1.1.4-beta.1] - 2026-06-02
 
 ### Added

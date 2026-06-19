@@ -363,6 +363,16 @@ input[type="range"]::-moz-range-thumb {
   margin-top: 0;
 }
 
+.profile-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.profile-bar select, .profile-bar input[type="text"] { flex: 1; min-width: 0; }
+
 .grid-2 {
   display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
 }
@@ -999,7 +1009,18 @@ input[type="range"]::-moz-range-thumb {
 
 <div id="config-content" class="content full-width active">
   <div class="left-panel" style="max-width: 1200px; margin: 0 auto;">
-    
+
+    <div style="margin-bottom: 6px;">
+      <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Profiles</div>
+      <div style="font-size: 12px; color: var(--text-dim);">Save different setups to switch between quickly. Each profile stores your scene triggers and theme.</div>
+    </div>
+    <div class="profile-bar" id="profile-bar">
+      <select id="profile-select" onchange="onProfileSelectChange()" title="Switch profile"></select>
+      <input type="text" id="profile-name-input" placeholder="Profile name…" style="max-width:180px;">
+      <button class="btn" onclick="saveProfile()">💾 Save</button>
+      <button class="btn btn-danger" onclick="deleteProfile()">✕ Delete</button>
+    </div>
+
     <div class="section-title section-title-collapsible" onclick="toggleSection('general-settings')">
       General Settings
       <span class="section-toggle" id="general-settings-toggle">▼</span>
@@ -1736,6 +1757,7 @@ const THEME_PRESETS = {
 
 let currentPreset = 'cyberpunk';
 let savedThemes = JSON.parse(localStorage.getItem('customThemes') || '{}');
+let savedProfiles = JSON.parse(localStorage.getItem('profiles') || '{}');
 
 // ═══════════════════════════════════════════════════════════
 //  SCENE TIPS
@@ -1765,6 +1787,7 @@ function init() {
   
   renderThemePresets();
   renderSavedThemes();
+  renderProfileDropdown();
   loadTheme(currentPreset);
   renderSceneTips();
   updateGradient();
@@ -1791,70 +1814,71 @@ function init() {
   setupPlatformListeners();
 }
 
+function applyConfigToDOM(config) {
+  if (config.ALERT_DURATION_SECONDS) {
+    document.getElementById('alert-duration').value = config.ALERT_DURATION_SECONDS;
+  }
+  if (config.DEFAULT_SCENE) {
+    document.getElementById('default-scene').value = config.DEFAULT_SCENE;
+  }
+  if (config.SCENE_SWITCH_DELAY_SECONDS !== undefined) {
+    document.getElementById('scene-switch-delay').value = config.SCENE_SWITCH_DELAY_SECONDS;
+  }
+  if (config.SHOW_OTHER_TIPS_OVERLAY !== undefined) {
+    document.getElementById('show-other-tips-overlay').value = config.SHOW_OTHER_TIPS_OVERLAY.toString();
+  }
+  if (config.MENU_DISPLAY_POSITION) {
+    document.getElementById('menu-display-position').value = config.MENU_DISPLAY_POSITION;
+  }
+  if (config.MENU_DISPLAY_INTERVAL_SECONDS) {
+    document.getElementById('menu-display-interval').value = config.MENU_DISPLAY_INTERVAL_SECONDS;
+  } else if (config.MENU_DISPLAY_INTERVAL_MINUTES) {
+    // backward compat: convert old minutes value to seconds
+    document.getElementById('menu-display-interval').value = config.MENU_DISPLAY_INTERVAL_MINUTES * 60;
+  }
+  updateMenuIntervalDisplay();
+  if (config.MENU_DISPLAY_DURATION_SECONDS) {
+    document.getElementById('menu-display-duration').value = config.MENU_DISPLAY_DURATION_SECONDS;
+  }
+  if (config.MENU_DISPLAY_SCALE !== undefined) {
+    document.getElementById('menu-display-scale').value = config.MENU_DISPLAY_SCALE;
+    document.getElementById('menu-display-scale-value').textContent = parseFloat(config.MENU_DISPLAY_SCALE).toFixed(2);
+  }
+  if (config.MENU_DISPLAY_ANIMATION) {
+    document.getElementById('menu-display-animation').value = config.MENU_DISPLAY_ANIMATION;
+  }
+  if (config.MENU_DISPLAY_BG_OPACITY !== undefined) {
+    document.getElementById('menu-display-bg-opacity').value = config.MENU_DISPLAY_BG_OPACITY;
+    document.getElementById('menu-display-bg-opacity-value').textContent = parseFloat(config.MENU_DISPLAY_BG_OPACITY).toFixed(2);
+  }
+  if (config.TICKER_POSITION !== undefined) {
+    document.getElementById('ticker-position').value = config.TICKER_POSITION;
+  }
+  if (config.TICKER_SPEED !== undefined) {
+    document.getElementById('ticker-speed').value = config.TICKER_SPEED;
+    document.getElementById('ticker-speed-value').textContent = config.TICKER_SPEED + 's';
+  }
+  if (config.TICKER_SCALE !== undefined) {
+    document.getElementById('ticker-scale').value = config.TICKER_SCALE;
+    document.getElementById('ticker-scale-value').textContent = parseFloat(config.TICKER_SCALE).toFixed(2);
+  }
+  if (config.TICKER_SEPARATOR !== undefined) {
+    document.getElementById('ticker-separator').value = config.TICKER_SEPARATOR;
+  }
+}
+
 function loadSavedConfiguration() {
   const savedConfig = localStorage.getItem('savedConfig');
   const savedSceneTipsData = localStorage.getItem('savedSceneTips');
-  
+
   if (savedConfig) {
     try {
-      const config = JSON.parse(savedConfig);
-      
-      // Load config values into inputs
-      if (config.ALERT_DURATION_SECONDS) {
-        document.getElementById('alert-duration').value = config.ALERT_DURATION_SECONDS;
-      }
-      if (config.DEFAULT_SCENE) {
-        document.getElementById('default-scene').value = config.DEFAULT_SCENE;
-      }
-      if (config.SCENE_SWITCH_DELAY_SECONDS !== undefined) {
-        document.getElementById('scene-switch-delay').value = config.SCENE_SWITCH_DELAY_SECONDS;
-      }
-      if (config.SHOW_OTHER_TIPS_OVERLAY !== undefined) {
-        document.getElementById('show-other-tips-overlay').value = config.SHOW_OTHER_TIPS_OVERLAY.toString();
-      }
-      if (config.MENU_DISPLAY_POSITION) {
-        document.getElementById('menu-display-position').value = config.MENU_DISPLAY_POSITION;
-      }
-      if (config.MENU_DISPLAY_INTERVAL_SECONDS) {
-        document.getElementById('menu-display-interval').value = config.MENU_DISPLAY_INTERVAL_SECONDS;
-      } else if (config.MENU_DISPLAY_INTERVAL_MINUTES) {
-        // backward compat: convert old minutes value to seconds
-        document.getElementById('menu-display-interval').value = config.MENU_DISPLAY_INTERVAL_MINUTES * 60;
-      }
-      updateMenuIntervalDisplay();
-      if (config.MENU_DISPLAY_DURATION_SECONDS) {
-        document.getElementById('menu-display-duration').value = config.MENU_DISPLAY_DURATION_SECONDS;
-      }
-      if (config.MENU_DISPLAY_SCALE !== undefined) {
-        document.getElementById('menu-display-scale').value = config.MENU_DISPLAY_SCALE;
-        document.getElementById('menu-display-scale-value').textContent = parseFloat(config.MENU_DISPLAY_SCALE).toFixed(2);
-      }
-      if (config.MENU_DISPLAY_ANIMATION) {
-        document.getElementById('menu-display-animation').value = config.MENU_DISPLAY_ANIMATION;
-      }
-      if (config.MENU_DISPLAY_BG_OPACITY !== undefined) {
-        document.getElementById('menu-display-bg-opacity').value = config.MENU_DISPLAY_BG_OPACITY;
-        document.getElementById('menu-display-bg-opacity-value').textContent = parseFloat(config.MENU_DISPLAY_BG_OPACITY).toFixed(2);
-      }
-      if (config.TICKER_POSITION !== undefined) {
-        document.getElementById('ticker-position').value = config.TICKER_POSITION;
-      }
-      if (config.TICKER_SPEED !== undefined) {
-        document.getElementById('ticker-speed').value = config.TICKER_SPEED;
-        document.getElementById('ticker-speed-value').textContent = config.TICKER_SPEED + 's';
-      }
-      if (config.TICKER_SCALE !== undefined) {
-        document.getElementById('ticker-scale').value = config.TICKER_SCALE;
-        document.getElementById('ticker-scale-value').textContent = parseFloat(config.TICKER_SCALE).toFixed(2);
-      }
-      if (config.TICKER_SEPARATOR !== undefined) {
-        document.getElementById('ticker-separator').value = config.TICKER_SEPARATOR;
-      }
+      applyConfigToDOM(JSON.parse(savedConfig));
     } catch (err) {
       console.log('Could not load saved config:', err);
     }
   }
-  
+
   if (savedSceneTipsData) {
     try {
       const loadedSceneTips = JSON.parse(savedSceneTipsData);
@@ -1955,6 +1979,35 @@ function saveCredentials(method, username, token, url) {
   }
 }
 
+function autoSaveCredentials() {
+  const method = document.querySelector('input[name="config-method"]:checked')?.value;
+  const url = document.getElementById('events-api-url')?.value.trim();
+  const username = document.getElementById('cb-username')?.value.trim();
+  const token = document.getElementById('cb-token')?.value.trim();
+  const jId = document.getElementById('joystick-client-id')?.value.trim();
+  const jSecret = document.getElementById('joystick-client-secret')?.value.trim();
+  const sc = document.getElementById('stripchat-username')?.value.trim();
+  const tId = document.getElementById('twitch-client-id')?.value.trim();
+  const tToken = document.getElementById('twitch-access-token')?.value.trim();
+  const tChannel = document.getElementById('twitch-channel')?.value.trim();
+
+  if (method) localStorage.setItem('cbMethod', method);
+  if (url) localStorage.setItem('cbUrl', url);
+  if (username) localStorage.setItem('cbUsername', username);
+  if (token) localStorage.setItem('cbToken', token);
+  if (jId) localStorage.setItem('joystickClientId', jId);
+  if (jSecret) localStorage.setItem('joystickClientSecret', jSecret);
+  if (sc) localStorage.setItem('stripchatUsername', sc);
+  if (tId) localStorage.setItem('twitchClientId', tId);
+  if (tToken) localStorage.setItem('twitchAccessToken', tToken);
+  if (tChannel) localStorage.setItem('twitchChannel', tChannel);
+
+  const cbValid = (method === 'url' && !!url) || (method === 'separate' && !!username && !!token);
+  if (cbValid || (jId && jSecret) || !!sc || (tId && tToken && tChannel)) {
+    localStorage.setItem('apiConfigured', 'true');
+  }
+}
+
 // ═══════════════════════════════════════════════════════════
 //  TAB SWITCHING
 // ═══════════════════════════════════════════════════════════
@@ -2039,66 +2092,64 @@ function renderThemePresets() {
   }
 }
 
-function loadTheme(key) {
-  const theme = THEME_PRESETS[key] || savedThemes[key];
-  if (!theme) return;
-  
+function applyFullThemeToForm(theme) {
   document.getElementById('accent').value = theme.accent;
   document.getElementById('accent-text').value = theme.accent;
   document.getElementById('gold').value = theme.gold;
   document.getElementById('gold-text').value = theme.gold;
   document.getElementById('teal').value = theme.teal;
   document.getElementById('teal-text').value = theme.teal;
-  
+
   document.getElementById('bg-color1').value = theme.bgColor1;
   document.getElementById('bg-color1-text').value = theme.bgColor1;
   document.getElementById('bg-color2').value = theme.bgColor2;
   document.getElementById('bg-color2-text').value = theme.bgColor2;
   document.getElementById('gradient-angle').value = theme.bgAngle;
-  
+
   document.getElementById('display-font').value = theme.displayFont;
   document.getElementById('body-font').value = theme.bodyFont;
   document.getElementById('radius').value = theme.radius;
   document.getElementById('border-width').value = theme.borderWidth;
   document.getElementById('box-width').value = theme.boxWidth;
   document.getElementById('opacity').value = theme.opacity;
-  
-  if (theme.bgOpacity !== undefined) {
-    document.getElementById('bg-opacity').value = theme.bgOpacity;
-  } else {
-    document.getElementById('bg-opacity').value = 1;
-  }
-  
+
+  document.getElementById('bg-opacity').value = theme.bgOpacity !== undefined ? theme.bgOpacity : 1;
+
   document.getElementById('position').value = theme.position;
   document.getElementById('position-offset').value = theme.positionOffset;
   document.getElementById('animation-type').value = theme.animationType;
   document.getElementById('slide-duration').value = theme.slideDuration;
   document.getElementById('shimmer').value = (theme.shimmer ?? false).toString();
-  
+
   document.getElementById('font-size-label').value = theme.fontSizeLabel;
   document.getElementById('font-size-username').value = theme.fontSizeUsername;
   document.getElementById('font-size-tokens').value = theme.fontSizeTokens;
   document.getElementById('font-size-message').value = theme.fontSizeMessage;
-  
+
   if (theme.topBarHeight !== undefined) {
     document.getElementById('top-bar-height').value = theme.topBarHeight;
   }
-  
   if (theme.progressBarEnabled !== undefined) {
     document.getElementById('progress-bar-enabled').value = theme.progressBarEnabled.toString();
   }
-  
   if (theme.progressBarHeight !== undefined) {
     document.getElementById('progress-bar-height').value = theme.progressBarHeight;
   }
-  
+
+  updateGradient();
+  updatePreview();
+}
+
+function loadTheme(key) {
+  const theme = THEME_PRESETS[key] || savedThemes[key];
+  if (!theme) return;
+
+  applyFullThemeToForm(theme);
+
   // Pre-fill custom theme name if loading a saved theme
   if (savedThemes[key] && theme.name) {
     document.getElementById('custom-theme-name').value = theme.name;
   }
-  
-  updateGradient();
-  updatePreview();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2154,6 +2205,91 @@ function renderSavedThemes() {
     item.appendChild(actionsDiv);
     container.appendChild(item);
   });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PROFILES
+// ═══════════════════════════════════════════════════════════
+
+function renderProfileDropdown(selectName) {
+  const select = document.getElementById('profile-select');
+  select.innerHTML = '<option value="">— No Profile —</option>';
+  Object.keys(savedProfiles).sort().forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+  const nameToSelect = selectName !== undefined
+    ? selectName
+    : (localStorage.getItem('appliedProfile') || '');
+  if (nameToSelect && savedProfiles[nameToSelect]) {
+    select.value = nameToSelect;
+    document.getElementById('profile-name-input').value = nameToSelect;
+  } else {
+    select.value = '';
+    document.getElementById('profile-name-input').value = '';
+  }
+}
+
+function onProfileSelectChange() {
+  const name = document.getElementById('profile-select').value;
+  if (!name) {
+    document.getElementById('profile-name-input').value = '';
+    return;
+  }
+  document.getElementById('profile-name-input').value = name;
+  loadProfile(name);
+}
+
+function loadProfile(name) {
+  const profile = savedProfiles[name];
+  if (!profile) {
+    showNotification('Profile not found', true);
+    return;
+  }
+  if (profile.config) {
+    try { applyConfigToDOM(profile.config); } catch (err) { console.log('Profile config load error:', err); }
+  }
+  if (Array.isArray(profile.sceneTips)) {
+    sceneTips = JSON.parse(JSON.stringify(profile.sceneTips));
+    renderSceneTips();
+  }
+  if (profile.theme) {
+    try { applyFullThemeToForm(profile.theme); } catch (err) { console.log('Profile theme load error:', err); }
+  }
+  showNotification(`Profile "${name}" loaded`);
+}
+
+function saveProfile() {
+  const name = document.getElementById('profile-name-input').value.trim();
+  if (!name) {
+    showNotification('Enter a profile name first', true);
+    return;
+  }
+  const cfg = getConfig();
+  delete cfg.SCENE_TIPS;
+  savedProfiles[name] = {
+    config: cfg,
+    sceneTips: JSON.parse(JSON.stringify(sceneTips)),
+    theme: getCurrentTheme()
+  };
+  localStorage.setItem('profiles', JSON.stringify(savedProfiles));
+  renderProfileDropdown(name);
+  showNotification(`Profile "${name}" saved!`);
+}
+
+function deleteProfile() {
+  const name = document.getElementById('profile-select').value;
+  if (!name) {
+    showNotification('Select a profile to delete', true);
+    return;
+  }
+  if (!window.confirm(`Delete profile "${name}"?`)) return;
+  delete savedProfiles[name];
+  localStorage.setItem('profiles', JSON.stringify(savedProfiles));
+  renderProfileDropdown();
+  showNotification(`Profile "${name}" deleted`);
 }
 
 function saveCustomTheme() {
@@ -3435,6 +3571,19 @@ function setupPlatformListeners() {
   const radios = document.querySelectorAll('input[name="config-method"]');
   radios.forEach(radio => {
     radio.addEventListener('change', updateSaveButton);
+    radio.addEventListener('change', autoSaveCredentials);
+  });
+
+  // Auto-save credentials to localStorage as user types
+  const allCredentialInputs = [
+    'events-api-url', 'cb-username', 'cb-token',
+    'joystick-client-id', 'joystick-client-secret',
+    'stripchat-username',
+    'twitch-client-id', 'twitch-access-token', 'twitch-channel'
+  ];
+  allCredentialInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', autoSaveCredentials);
   });
 }
 
@@ -3518,6 +3667,7 @@ async function applyLive() {
       localStorage.setItem('savedConfig', JSON.stringify(config));
       localStorage.setItem('savedTheme', JSON.stringify(theme));
       localStorage.setItem('savedSceneTips', JSON.stringify(sceneTips));
+      localStorage.setItem('appliedProfile', document.getElementById('profile-select').value || '');
       
       // Remove shimmer effect
       if (applyButton) {

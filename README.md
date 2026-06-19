@@ -30,6 +30,7 @@ Transform your cam shows with dynamic, tip-activated scene transitions! Set diff
 - 🛡️ **Deduplication** - Prevents duplicate scene switches
 - 🔄 **Auto-Update** - Detects new versions at startup and offers to download and apply the update automatically
 - 🎨 **Color-coded console** - Platform tags and events are color-coded in the server console for easy reading
+- 🗂️ **Profiles** - Save multiple named setups and switch between them instantly — each profile stores scene triggers, settings, and theme
 - 🌐 **Cross-Platform** - Works on Windows, macOS, and Linux (Linux not tested)
 
 ---
