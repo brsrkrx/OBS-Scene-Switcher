@@ -948,7 +948,7 @@ function processChaturbateEvent(event) {
       elog(`\x1b[31m⬅  ${C.cb}[CHATURBATE]${C.reset}\x1b[31m Event: userLeave "${username}"\x1b[0m`);
     } else if (methodLower === 'chatmessage' || methodLower === 'privatemessage') {
       const msgContent = obj.message?.message || obj.message || obj.msg || obj.text || '';
-      elog(`ℹ️  [CHATURBATE] ${method} from "${username}": "${msgContent}"`);
+      vlog(`ℹ️  [CHATURBATE] ${method} from "${username}": "${msgContent}"`);
     } else {
       elog(`ℹ️  [CHATURBATE] NON-TIP EVENT IGNORED: ${method} from "${username}"`);
     }
