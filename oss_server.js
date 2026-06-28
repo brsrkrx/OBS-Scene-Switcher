@@ -810,6 +810,13 @@ startServer().catch(err => {
 // ══════════════════════════════════════════════════════════
 //  CHATURBATE INTEGRATION
 // ══════════════════════════════════════════════════════════
+//
+// KNOWN BUG: Tips sent within ~1 second of a user entering the room may
+// not be registered. When a tip and a userEnter occur nearly simultaneously,
+// Chaturbate's Events API can process the userEnter first and advance the
+// cursor before the tip event is available in the stream. The tip then lands
+// at a cursor position our server has already passed and is never delivered.
+// This is a Chaturbate API race condition and cannot be fixed client-side.
 
 let chaturbateFetchActive = false;
 let chaturbateEventsUrl = '';
@@ -838,6 +845,9 @@ async function pollChaturbateEvents() {
       chaturbateHadError = false;
     }
 
+    // Advance cursor — NOTE: once next_url is set, any tip that Chaturbate places
+    // before this position (due to async processing) will be permanently missed.
+    // See known bug note at the top of the CHATURBATE INTEGRATION section.
     if (data.next_url) {
       chaturbateEventsUrl = data.next_url;
     }
