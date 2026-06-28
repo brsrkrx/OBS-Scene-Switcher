@@ -385,6 +385,13 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { ...headers, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
     clients.push(res);
     log('📱 Overlay connected (Total clients: ' + clients.length + ')');
+    // Flush any tips that arrived while no overlay was connected
+    if (latestEvents.length > 0) {
+      vlog(`📤 SERVER: Flushing ${latestEvents.length} pending event(s) to newly connected overlay`);
+      latestEvents.forEach(event => { if (event.type === 'tip') logSceneTrigger(event.tokens); });
+      res.write('data: ' + JSON.stringify({ events: latestEvents }) + '\n\n');
+      latestEvents = [];
+    }
     req.on('close', () => { clients = clients.filter(c => c !== res); log('📱 Overlay disconnected (Remaining: ' + clients.length + ')'); });
     return;
   }
@@ -820,7 +827,11 @@ async function pollChaturbateEvents() {
   chaturbateFetchActive = true;
 
   try {
-    const data = await fetchEvents(chaturbateEventsUrl + '?timeout=10');
+    // Use URL class to properly set the timeout param — avoids malformed URLs when
+    // next_url already contains query params (appending ?timeout=10 would break next_id)
+    const pollUrlObj = new URL(chaturbateEventsUrl);
+    pollUrlObj.searchParams.set('timeout', '10');
+    const data = await fetchEvents(pollUrlObj.toString());
 
     if (chaturbateHadError) {
       log('✅ [CHATURBATE] Connection recovered — polling resumed');
@@ -832,8 +843,9 @@ async function pollChaturbateEvents() {
     }
 
     if (data.events && data.events.length > 0) {
-      vlog('📬 [CHATURBATE] Received ' + data.events.length + ' event(s)');
-      
+      const methods = data.events.map(e => e.method || '?').join(', ');
+      vlog(`📬 [CHATURBATE] Poll returned ${data.events.length} event(s): ${methods}`);
+
       for (const event of data.events) {
         processChaturbateEvent(event);
       }
@@ -854,23 +866,24 @@ async function pollChaturbateEvents() {
 
 function processChaturbateEvent(event) {
   const method = event.method;
+  const methodLower = (method || '').toLowerCase(); // case-insensitive comparisons — CB uses mixed casing (e.g. ChatMessage, not chatMessage)
   const obj = event.object;
-  
+
   vlog('📦 [CHATURBATE] RAW EVENT: ' + JSON.stringify(event));
-  
+
   // Generate event ID
   let eventId;
-  
-  if (method === 'tip') {
+
+  // NOTE: tip-related diagnostics below use elog() (level 2) instead of vlog() (level 3)
+  // to help debug missed tips without requiring full debug mode. Revert to vlog() if too noisy.
+  if (methodLower === 'tip') {
     const tip = obj.tip || obj;
     const username = obj.user?.username || 'Anonymous';
     const tokens = tip.tokens || 0;
-    const message = tip.message || '';
-    const isAnon = tip.isanon || false;
     const timestamp = event.id || Date.now();
     eventId = `cb_tip_${timestamp}_${username}_${tokens}`;
-    
-    vlog(`[CHATURBATE] Checking tip event - ID: ${eventId}, Tokens: ${tokens}`);
+
+    elog(`[CHATURBATE] Checking tip event - ID: ${eventId}, Tokens: ${tokens}`);
   } else {
     const username = obj.user?.username || 'Unknown';
     const timestamp = event.id || Date.now();
@@ -878,31 +891,31 @@ function processChaturbateEvent(event) {
 
     vlog(`[CHATURBATE] Non-tip event - Type: ${method}, ID: ${eventId}`);
   }
-  
+
   if (processedEventIds.has(eventId)) {
-    vlog(`⏭️  [CHATURBATE] SKIPPED - Already processed event ID: ${eventId}`);
+    elog(`⏭️  [CHATURBATE] SKIPPED - Already processed event ID: ${eventId}`);
     return;
   }
 
   processedEventIds.add(eventId);
   vlog(`✅ [CHATURBATE] NEW EVENT ACCEPTED - ID: ${eventId}`);
-  
-  if (method === 'tip') {
+
+  if (methodLower === 'tip') {
     const tip = obj.tip || obj;
     const username = obj.user ? obj.user.username : 'Anonymous';
     let tokens = tip.tokens;
-    
+
     if (tokens === undefined || tokens === null) {
       tokens = obj.tokens || tip.amount || obj.amount || 0;
     }
-    
-    vlog(`[CHATURBATE] Processing tip: User=${username}, Tokens=${tokens}, Has message=${!!(tip.message || obj.message)}`);
-    
+
+    elog(`[CHATURBATE] Processing tip: User=${username}, Tokens=${tokens}, Has message=${!!(tip.message || obj.message)}`);
+
     if (!tokens || tokens <= 0) {
       log(`⚠️  [CHATURBATE] INVALID TIP - Amount is ${tokens} (must be > 0)`);
       return;
     }
-    
+
     log(`💰 [CHATURBATE] VALID TIP: ${username} tipped ${tokens} tokens`);
 
     const safe = sanitizeTipData(username, tokens, tip.message || obj.message || '');
@@ -914,17 +927,26 @@ function processChaturbateEvent(event) {
       isAnon: tip.isanon || obj.isanon || false,
       timestamp: Date.now()
     });
-    
-    vlog(`✓ [CHATURBATE] Tip added to queue. Queue size: ${latestEvents.length}`);
+
+    elog(`✓ [CHATURBATE] Tip added to queue. Queue size: ${latestEvents.length}`);
   } else {
     const username = obj.user?.username || 'Unknown';
-    
-    if (method === 'userEnter') {
+
+    if (methodLower === 'userenter') {
       elog(`\x1b[32m▶  ${C.cb}[CHATURBATE]${C.reset}\x1b[32m Event: userEnter "${username}"\x1b[0m`);
-    } else if (method === 'userLeave') {
+    } else if (methodLower === 'userleave') {
       elog(`\x1b[31m⬅  ${C.cb}[CHATURBATE]${C.reset}\x1b[31m Event: userLeave "${username}"\x1b[0m`);
+    } else if (methodLower === 'chatmessage' || methodLower === 'privatemessage') {
+      const msgContent = obj.message?.message || obj.message || obj.msg || obj.text || '';
+      elog(`ℹ️  [CHATURBATE] ${method} from "${username}": "${msgContent}"`);
     } else {
-      vlog(`ℹ️  [CHATURBATE] NON-TIP EVENT IGNORED: ${method}`);
+      elog(`ℹ️  [CHATURBATE] NON-TIP EVENT IGNORED: ${method} from "${username}"`);
+    }
+
+    // Scan non-tip events for hidden token data — catches tips arriving under an unexpected method name
+    const possibleTokens = Number(obj?.tip?.tokens ?? obj?.tokens ?? obj?.amount ?? 0);
+    if (possibleTokens > 0) {
+      log(`⚠️  [CHATURBATE] "${method}" event from "${username}" contains ${possibleTokens} tokens — possible missed tip`);
     }
   }
 }
@@ -1039,16 +1061,17 @@ function processJoystickEvent(event) {
   const eventId = `joystick_${event.id || Date.now()}`;
 
   if (processedEventIds.has(eventId)) {
-    vlog('⏭️  [JOYSTICK] SKIPPED - Already processed event ID: ' + eventId);
+    // NOTE: elog() instead of vlog() for tip-event debugging at level 2. Revert to vlog() if too noisy.
+    elog('⏭️  [JOYSTICK] SKIPPED - Already processed event ID: ' + eventId);
     return;
   }
 
   processedEventIds.add(eventId);
   vlog('✅ [JOYSTICK] NEW EVENT ACCEPTED - ID: ' + eventId);
-  
+
   if (eventType === 'StreamEvent') {
     const streamEventType = event.type;
-    
+
     if (streamEventType === 'Tipped') {
       handleJoystickTip(event);
       sendEventsToClients();
@@ -1085,13 +1108,13 @@ function handleJoystickTip(event) {
     const tokens = metadata.how_much || 0;
     const tipMenuItem = metadata.tip_menu_item || null;
     
-    vlog(`[JOYSTICK] Processing tip: User=${username}, Tokens=${tokens}, Menu Item=${tipMenuItem || 'none'}`);
-    
+    elog(`[JOYSTICK] Processing tip: User=${username}, Tokens=${tokens}, Menu Item=${tipMenuItem || 'none'}`);
+
     if (!tokens || tokens <= 0) {
       log(`⚠️  [JOYSTICK] INVALID TIP - Amount is ${tokens} (must be > 0)`);
       return;
     }
-    
+
     log(`💰 [JOYSTICK] VALID TIP: ${username} tipped ${tokens} tokens` + (tipMenuItem ? ` for ${tipMenuItem}` : ''));
 
     const safe = sanitizeTipData(username, tokens, tipMenuItem || '');
@@ -1102,8 +1125,8 @@ function handleJoystickTip(event) {
       message: safe.message,
       timestamp: Date.now()
     });
-    
-    vlog(`✓ [JOYSTICK] Tip added to queue. Queue size: ${latestEvents.length}`);
+
+    elog(`✓ [JOYSTICK] Tip added to queue. Queue size: ${latestEvents.length}`);
     
   } catch (err) {
     log('❌ [JOYSTICK] Error parsing tip metadata: ' + err.message);
@@ -1192,12 +1215,13 @@ function processStripchatTip(msg) {
   const eventId = msg.id ? `sc_msg_${msg.id}` : `sc_tip_${displayName}_${tokens}_${msg.createdAt || ''}`;
 
   if (processedEventIds.has(eventId)) {
-    vlog('⏭️  [STRIPCHAT] Skipped duplicate: ' + eventId);
+    // NOTE: elog() instead of vlog() for tip-event debugging at level 2. Revert to vlog() if too noisy.
+    elog('⏭️  [STRIPCHAT] Skipped duplicate: ' + eventId);
     return;
   }
 
   processedEventIds.add(eventId);
-  vlog('✅ [STRIPCHAT] NEW EVENT ACCEPTED - ID: ' + eventId);
+  elog('✅ [STRIPCHAT] NEW EVENT ACCEPTED - ID: ' + eventId);
 
   if (!tokens || tokens <= 0) {
     log('⚠️  [STRIPCHAT] INVALID TIP - Amount is ' + tokens + ' (must be > 0)');
@@ -1216,7 +1240,7 @@ function processStripchatTip(msg) {
   });
 
   sendEventsToClients();
-  vlog('✓ [STRIPCHAT] Tip added to queue. Queue size: ' + latestEvents.length);
+  elog('✓ [STRIPCHAT] Tip added to queue. Queue size: ' + latestEvents.length);
 }
 
 function fetchStripchatChat() {
@@ -1533,12 +1557,13 @@ function processTwitchCheer(event, messageId) {
     : 'twitch_cheer_' + (event.broadcaster_user_id || '') + '_' + (event.user_id || 'anon') + '_' + (event.bits || 0) + '_' + Date.now();
 
   if (processedEventIds.has(eventId)) {
-    vlog('⏭️  [TWITCH] SKIPPED - Already processed event ID: ' + eventId);
+    // NOTE: elog() instead of vlog() for tip-event debugging at level 2. Revert to vlog() if too noisy.
+    elog('⏭️  [TWITCH] SKIPPED - Already processed event ID: ' + eventId);
     return;
   }
 
   processedEventIds.add(eventId);
-  vlog('✅ [TWITCH] NEW EVENT ACCEPTED - ID: ' + eventId);
+  elog('✅ [TWITCH] NEW EVENT ACCEPTED - ID: ' + eventId);
 
   const isAnon = event.is_anonymous || false;
   const username = isAnon ? 'Anonymous' : (event.user_name || 'Anonymous');
@@ -1563,7 +1588,7 @@ function processTwitchCheer(event, messageId) {
   });
 
   sendEventsToClients();
-  vlog('✓ [TWITCH] Cheer added to queue. Queue size: ' + latestEvents.length);
+  elog('✓ [TWITCH] Cheer added to queue. Queue size: ' + latestEvents.length);
 }
 
 // ── Helper Functions ────────────────────────────────────────
